@@ -243,6 +243,18 @@ def make_record(client_pub, api_key, account_id, omlet_id, scopes):
     }
 
 
+def session_z(record):
+    z = dict(record.get("z", {}))
+    z["e"] = True
+    z["p"] = False
+    profile = dict(z.get("a", {}))
+    profile.pop("i", None)
+    profile["i"] = True
+    profile["c"] = []
+    z["a"] = profile
+    return z
+
+
 def profile_about(record):
     now = int(time.time() * 1000)
     omlet_id = record.get("omlet_id", "omletplayer")
@@ -501,7 +513,7 @@ async def handler(ws, *args):
                     account_id=account_id,
                 )
                 if record:
-                    response["a"] = {"a": record["z"]}
+                    response["a"] = {"a": session_z(record)}
                     LOG.info(
                         "QB_RESUME path=%s account=%s omlet_id=%s",
                         path,
@@ -515,6 +527,13 @@ async def handler(ws, *args):
                         path,
                         state.get("client_pub"),
                     )
+            elif isinstance(q.get("a"), dict) and "cis" in q["a"]:
+                response["a"] = {"cis": {"s": "Success"}}
+                LOG.info(
+                    "CHECK_IDENTITY path=%s %s",
+                    path,
+                    json.dumps(q["a"]["cis"])[:500],
+                )
             elif isinstance(q.get("a"), dict) and "ci" in q["a"]:
                 LOG.info("CHECK_ID path=%s %s", path, json.dumps(q["a"]["ci"])[:2000])
                 response["="] = {"v": True}
