@@ -59,6 +59,7 @@ logging.basicConfig(
 LOG = logging.getLogger("omlet")
 
 ACCOUNTS = []
+POST_STATE = {"liked": False, "count": 0}
 
 
 def b64d(value):
@@ -359,6 +360,21 @@ async def handler(ws, *args):
                     path,
                     list(q["w"].keys()),
                 )
+            elif isinstance(q.get("w"), dict) and "l" in q["w"]:
+                like_req = q["w"]["l"] or {}
+                liked = bool(like_req.get("l", False)) if isinstance(like_req, dict) else False
+                if liked != POST_STATE["liked"]:
+                    POST_STATE["count"] = max(
+                        0, POST_STATE["count"] + (1 if liked else -1)
+                    )
+                    POST_STATE["liked"] = liked
+                response["="] = {"v": True}
+                LOG.info(
+                    "LIKE path=%s liked=%s count=%s",
+                    path,
+                    liked,
+                    POST_STATE["count"],
+                )
             elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
                 record = find_account(client_pub=state.get("client_pub"))
                 if record is None:
@@ -402,8 +418,8 @@ async def handler(ws, *args):
                             "g": [],
                             "ct": now,
                             "cc": 0,
-                            "l": 0,
-                            "yl": False,
+                            "l": POST_STATE["count"],
+                            "yl": POST_STATE["liked"],
                             "vd": False,
                         }
                     },

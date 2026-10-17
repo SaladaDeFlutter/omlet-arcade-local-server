@@ -9,7 +9,8 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
 > name, level, zeroed counts, bio, avatar and cover (local placeholder assets).
 > The Home feed renders a local test post (author, title, description and
 > like/comment/share; the post image uses the default logo) and its post detail
-> opens text-only. Chat/live and feed media are **not** implemented yet.
+> opens text-only. Post likes toggle and persist across reloads. Chat/live and
+> feed media are **not** implemented yet.
 
 > **Disclaimer:** this is an unofficial reverse-engineering / preservation
 > project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
@@ -45,14 +46,16 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
   (`usr`/`dq0`), title/description and a link preview. The post media/image uses
   the default Omlet logo. Opening the post detail works text-only (the `yl`/`vd`
   booleans are filled to avoid the old `PostViewFragment` crash).
+- Post likes: the `w.l` (`jg0`) job updates the server-side like state; the feed
+  returns `yl` and the like count, so the heart/count persist across reloads.
 - Patched APK points every embedded endpoint to a local HTTP/WS server.
 
 Not implemented yet:
 
 - Profile content (posts, store, collections, moments) and other users'
   profiles.
-- Feed media/post images, multiple posts/pagination, post interactions/comments,
-  follows, chat/messaging, games, live/streaming.
+- Feed media/post images, multiple posts/pagination, comments and other
+  interactions, follows, chat/messaging, games, live/streaming.
 - Blobs for user-uploaded media, push notifications, billing/NFT/analytics
   namespaces.
 
@@ -371,8 +374,8 @@ server/venv/bin/python server/stub.py
 - **Profile media/content**: the avatar and cover are local placeholder assets;
   profile posts/store/collections/moments are empty.
 - **Home feed**: one local test post is served and its post detail opens
-  text-only; feed media, multiple posts, pagination and interactions/comments are
-  not implemented.
+  text-only; likes persist, but feed media, multiple posts, pagination, comments
+  and other interactions are not implemented.
 - **Chat/messaging** is not implemented.
 - **Live/streaming** is not implemented; the original app relied on external
   RTMP/SRT/WebRTC and third-party platforms.
