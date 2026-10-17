@@ -5,10 +5,9 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
 
 > **Status:** guest login and session resume work end-to-end. The patched client
 > completes the WebSocket handshake, creates a guest account, persists it and
-> resumes the session after a restart. Profile endpoints are implemented
-> (`gpa`, `p.c`, follower/following/posts counts and shards); the profile About
-> screen still shows skeleton placeholders while the remaining profile fields are
-> mapped. Feed/chat/live are **not** implemented yet.
+> resumes the session after a restart. The profile About screen renders the guest
+> name, level, zeroed counts, bio and tabs (default avatar and empty media
+> sections). Feed/chat/live are **not** implemented yet.
 
 > **Disclaimer:** this is an unofficial reverse-engineering / preservation
 > project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
@@ -34,7 +33,10 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
   - `p.c` → `z00`/`se` (profile details; the Omlet ID appears in Account
     Settings);
   - `w.gfc`, `w.gafc`, `w.guwc` → `pz0` (follower/following/posts counts);
-  - `p.gui` → `ra0` (shards).
+  - `p.gui` → `ra0` (shards);
+  - `ca.g` → `uu` (top supporters).
+- The Profile About screen renders the guest name, level, zeroed counts, bio and
+  tabs. The avatar is the default placeholder and media/post sections are empty.
 - Patched APK points every embedded endpoint to a local HTTP/WS server.
 
 Not implemented yet:
@@ -355,16 +357,16 @@ server/venv/bin/python server/stub.py
 
 ## Known limitations / roadmap
 
-- **Profile About UI**: the requests are implemented, but the About screen still
-  shows skeleton placeholders; more `hr0`/`se` fields and remaining profile
-  requests need to be mapped.
+- **Profile media/content**: the About screen renders, but the avatar is the
+  default placeholder and posts/store/collections/moments are empty because media
+  blobs and feed data are not implemented.
 - **Home feed**: `w.ghp` → `sx`/`td0` is not implemented.
 - **Chat/messaging** is not implemented.
 - **Live/streaming** is not implemented; the original app relied on external
   RTMP/SRT/WebRTC and third-party platforms.
 - **Blobs / push / billing / NFT / analytics** are not implemented.
 - Analytics/billing calls will log errors in the client UI; they are harmless for
-  the login/session milestones.
+  the login/session/profile milestones.
 
 ---
 

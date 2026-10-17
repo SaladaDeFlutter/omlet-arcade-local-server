@@ -149,6 +149,8 @@ def profile_about(record):
         "lm": now,
         "bg": "",
         "g": "Unknown",
+        "p": [],
+        "s": "Omlet Arcade guest",
         "tfs": False,
         "p2pfc": 0,
         "p2popb": 0,
@@ -323,6 +325,11 @@ async def handler(ws, *args):
             elif isinstance(q.get("p"), dict) and "gui" in q["p"]:
                 response["p"] = {"gui": {"ii": {}}}
                 LOG.info("SHARDS path=%s", path)
+            elif isinstance(q.get("ca"), dict) and "g" in q["ca"]:
+                response["ca"] = {
+                    "g": {"d": [], "l": [], "m": [], "u": [], "w": []}
+                }
+                LOG.info("TOP_SUPPORTERS path=%s", path)
             else:
                 LOG.info(
                     "UNKNOWN path=%s keys=%s payload=%s",
