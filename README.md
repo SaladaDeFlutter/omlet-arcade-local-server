@@ -3,9 +3,12 @@
 Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
 `mobisocial.arcade`), discontinued in 2023.
 
-> **Status:** guest login works end-to-end. The patched client completes the
-> WebSocket handshake, validates an Omlet ID, creates a guest account and reaches
-> the Home UI. Feed/profile/chat/live are **not** implemented yet.
+> **Status:** guest login and session resume work end-to-end. The patched client
+> completes the WebSocket handshake, creates a guest account, persists it and
+> resumes the session after a restart. Profile endpoints are implemented
+> (`gpa`, `p.c`, follower/following/posts counts and shards); the profile About
+> screen still shows skeleton placeholders while the remaining profile fields are
+> mapped. Feed/chat/live are **not** implemented yet.
 
 > **Disclaimer:** this is an unofficial reverse-engineering / preservation
 > project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
@@ -21,14 +24,25 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
   protocol over WebSocket (`md0` → `nd0` → `he` → `ie`).
 - Omlet ID availability check (`ci` → `pz0`).
 - Guest account creation (`sc` → `nz0`/`z`) with cluster `ONE`.
-- Client reaches the Home UI logged in as a guest.
+- Session resume after restarting the app (`qb` → `z`) backed by a local account
+  store (`server/accounts.json`, not committed).
+- Client reaches the Home UI logged in as a guest and keeps the session after a
+  restart.
 - Session/keepalive handling (`rp0` → `sp0`).
+- Profile requests:
+  - `gpa` → `ir0`/`hr0` (profile About);
+  - `p.c` → `z00`/`se` (profile details; the Omlet ID appears in Account
+    Settings);
+  - `w.gfc`, `w.gafc`, `w.guwc` → `pz0` (follower/following/posts counts);
+  - `p.gui` → `ra0` (shards).
 - Patched APK points every embedded endpoint to a local HTTP/WS server.
 
 Not implemented yet:
 
-- Session resume after restarting the app (`qb`/recovery token).
-- Home feed, profiles, follows, chat/messaging, games, live/streaming.
+- The profile About UI still needs more `hr0`/`se` fields and remaining profile
+  requests before it renders fully (currently skeleton placeholders).
+- Home feed (`w.ghp` → `sx`/`td0`), follows, chat/messaging, games,
+  live/streaming.
 - Blobs, push notifications, billing/NFT/analytics namespaces.
 
 ---
@@ -149,13 +163,16 @@ the cluster endpoint.
 ├── LICENSE
 ├── .gitignore
 ├── server/
-│   ├── server.py            # handshake + guest login server
+│   ├── server.py            # handshake, sessions and profile server
 │   ├── stub.py             # raw WebSocket logger (protocol debugging)
 │   ├── generate_keys.py    # creates server/keys.json
 │   └── requirements.txt
 └── scripts/
     └── patch-apk.sh         # decode/patch/rebuild/sign the client APK
 ```
+
+At runtime the server creates `server/accounts.json` to persist guest accounts
+across restarts. This file is ignored by Git.
 
 The original APK, the decompiled tree, the rebuilt APKs, logs, the private key
 and the signing keystore are intentionally **not** committed.
@@ -338,15 +355,16 @@ server/venv/bin/python server/stub.py
 
 ## Known limitations / roadmap
 
-- **Session resume** (`qb`/recovery token) is not implemented; after restarting
-  the app the guest account may need to be created again.
-- **Feed/profile** requests (`p`, `w`, `M`, etc.) return `NotImplemented`.
+- **Profile About UI**: the requests are implemented, but the About screen still
+  shows skeleton placeholders; more `hr0`/`se` fields and remaining profile
+  requests need to be mapped.
+- **Home feed**: `w.ghp` → `sx`/`td0` is not implemented.
 - **Chat/messaging** is not implemented.
 - **Live/streaming** is not implemented; the original app relied on external
   RTMP/SRT/WebRTC and third-party platforms.
 - **Blobs / push / billing / NFT / analytics** are not implemented.
 - Analytics/billing calls will log errors in the client UI; they are harmless for
-  the login milestone.
+  the login/session milestones.
 
 ---
 
