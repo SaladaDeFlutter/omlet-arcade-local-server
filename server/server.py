@@ -359,6 +359,57 @@ async def handler(ws, *args):
                     path,
                     list(q["w"].keys()),
                 )
+            elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                now = int(time.time() * 1000)
+                post = {
+                    "i": "local-post-1",
+                    "a": profile_about(record),
+                    "P": {
+                        "m": {
+                            "u": "Hello from the local Omlet server!",
+                            "t": "Hello from the local Omlet server!",
+                            "d": "Posted via the local server",
+                            "P": "https://omlet.gg",
+                            "Q": "Hello from the local Omlet server!",
+                            "U": "Local server test post",
+                            "oi": {
+                                "p": record.get("omlet_id", "omletplayer"),
+                                "t": "omlet",
+                            },
+                            "un": record.get("omlet_id", "omletplayer"),
+                            "id": {
+                                "a": record.get("account_id", ""),
+                                "t": "Message",
+                                "id": b64e(
+                                    record.get("account_id", "").encode("utf-8")
+                                ),
+                            },
+                            "usr": {
+                                "a": record.get("account_id", ""),
+                                "n": record.get("omlet_id", "omletplayer"),
+                                "p": AVATAR_BLOB_URL,
+                                "vfs": [],
+                            },
+                            "gn": [],
+                            "gi": [],
+                            "g": [],
+                            "ct": now,
+                            "cc": 0,
+                            "l": 0,
+                        }
+                    },
+                    "ls": {"t": str(now)},
+                    "ofc": 0,
+                }
+                response["w"] = {"ghp": {"p": [post]}}
+                LOG.info("FEED path=%s post=%s", path, post["i"])
             elif isinstance(q.get("p"), dict) and "gui" in q["p"]:
                 response["p"] = {"gui": {"ii": {}}}
                 LOG.info("SHARDS path=%s", path)

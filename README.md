@@ -6,8 +6,10 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
 > **Status:** guest login and session resume work end-to-end. The patched client
 > completes the WebSocket handshake, creates a guest account, persists it and
 > resumes the session after a restart. The profile About screen renders the guest
-> name, level, zeroed counts, bio, avatar and cover (local placeholder assets);
-> posts/media sections are empty. Feed/chat/live are **not** implemented yet.
+> name, level, zeroed counts, bio, avatar and cover (local placeholder assets).
+> The Home feed renders a local test post (author, title, description and
+> like/comment/share; the post image uses the default logo). Chat/live and feed
+> media are **not** implemented yet.
 
 > **Disclaimer:** this is an unofficial reverse-engineering / preservation
 > project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
@@ -39,14 +41,17 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
   asset server (`server/avatar.png`, `server/cover.png`).
 - The Profile About screen renders the guest name, level, zeroed counts, bio,
   avatar and cover. Posts/store/collections/moments are empty.
+- Home feed: `w.ghp` → `sx`/`td0` returns a local test post with author
+  (`usr`/`dq0`), title/description and a link preview. The post media/image uses
+  the default Omlet logo.
 - Patched APK points every embedded endpoint to a local HTTP/WS server.
 
 Not implemented yet:
 
 - Profile content (posts, store, collections, moments) and other users'
   profiles.
-- Home feed (`w.ghp` → `sx`/`td0`), follows, chat/messaging, games,
-  live/streaming.
+- Feed media/post images, multiple posts/pagination, post detail, follows,
+  chat/messaging, games, live/streaming.
 - Blobs for user-uploaded media, push notifications, billing/NFT/analytics
   namespaces.
 
@@ -363,9 +368,9 @@ server/venv/bin/python server/stub.py
 ## Known limitations / roadmap
 
 - **Profile media/content**: the avatar and cover are local placeholder assets;
-  posts/store/collections/moments are empty because feed and media blobs are not
-  implemented.
-- **Home feed**: `w.ghp` → `sx`/`td0` is not implemented.
+  profile posts/store/collections/moments are empty.
+- **Home feed**: one local test post is served; feed media, multiple posts,
+  pagination and post detail are not implemented.
 - **Chat/messaging** is not implemented.
 - **Live/streaming** is not implemented; the original app relied on external
   RTMP/SRT/WebRTC and third-party platforms.
