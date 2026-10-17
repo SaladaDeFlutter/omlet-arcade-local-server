@@ -8,8 +8,8 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
 > resumes the session after a restart. The profile About screen renders the guest
 > name, level, zeroed counts, bio, avatar and cover (local placeholder assets).
 > The Home feed renders a local test post (author, title, description and
-> like/comment/share; the post image uses the default logo). Chat/live and feed
-> media are **not** implemented yet.
+> like/comment/share; the post image uses the default logo) and its post detail
+> opens text-only. Chat/live and feed media are **not** implemented yet.
 
 > **Disclaimer:** this is an unofficial reverse-engineering / preservation
 > project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
@@ -43,15 +43,16 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
   avatar and cover. Posts/store/collections/moments are empty.
 - Home feed: `w.ghp` → `sx`/`td0` returns a local test post with author
   (`usr`/`dq0`), title/description and a link preview. The post media/image uses
-  the default Omlet logo.
+  the default Omlet logo. Opening the post detail works text-only (the `yl`/`vd`
+  booleans are filled to avoid the old `PostViewFragment` crash).
 - Patched APK points every embedded endpoint to a local HTTP/WS server.
 
 Not implemented yet:
 
 - Profile content (posts, store, collections, moments) and other users'
   profiles.
-- Feed media/post images, multiple posts/pagination, post detail, follows,
-  chat/messaging, games, live/streaming.
+- Feed media/post images, multiple posts/pagination, post interactions/comments,
+  follows, chat/messaging, games, live/streaming.
 - Blobs for user-uploaded media, push notifications, billing/NFT/analytics
   namespaces.
 
@@ -369,8 +370,9 @@ server/venv/bin/python server/stub.py
 
 - **Profile media/content**: the avatar and cover are local placeholder assets;
   profile posts/store/collections/moments are empty.
-- **Home feed**: one local test post is served; feed media, multiple posts,
-  pagination and post detail are not implemented.
+- **Home feed**: one local test post is served and its post detail opens
+  text-only; feed media, multiple posts, pagination and interactions/comments are
+  not implemented.
 - **Chat/messaging** is not implemented.
 - **Live/streaming** is not implemented; the original app relied on external
   RTMP/SRT/WebRTC and third-party platforms.

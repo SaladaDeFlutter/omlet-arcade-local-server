@@ -403,6 +403,8 @@ async def handler(ws, *args):
                             "ct": now,
                             "cc": 0,
                             "l": 0,
+                            "yl": False,
+                            "vd": False,
                         }
                     },
                     "ls": {"t": str(now)},
