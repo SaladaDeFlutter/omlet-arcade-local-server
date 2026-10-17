@@ -6,8 +6,8 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
 > **Status:** guest login and session resume work end-to-end. The patched client
 > completes the WebSocket handshake, creates a guest account, persists it and
 > resumes the session after a restart. The profile About screen renders the guest
-> name, level, zeroed counts, bio and tabs (default avatar and empty media
-> sections). Feed/chat/live are **not** implemented yet.
+> name, level, zeroed counts, bio, avatar and cover (local placeholder assets);
+> posts/media sections are empty. Feed/chat/live are **not** implemented yet.
 
 > **Disclaimer:** this is an unofficial reverse-engineering / preservation
 > project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
@@ -35,17 +35,20 @@ Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
   - `w.gfc`, `w.gafc`, `w.guwc` → `pz0` (follower/following/posts counts);
   - `p.gui` → `ra0` (shards);
   - `ca.g` → `uu` (top supporters).
-- The Profile About screen renders the guest name, level, zeroed counts, bio and
-  tabs. The avatar is the default placeholder and media/post sections are empty.
+- Profile avatar/cover blob tickets (`b.dt` → `wu`/`y7`) served by a local HTTP
+  asset server (`server/avatar.png`, `server/cover.png`).
+- The Profile About screen renders the guest name, level, zeroed counts, bio,
+  avatar and cover. Posts/store/collections/moments are empty.
 - Patched APK points every embedded endpoint to a local HTTP/WS server.
 
 Not implemented yet:
 
-- The profile About UI still needs more `hr0`/`se` fields and remaining profile
-  requests before it renders fully (currently skeleton placeholders).
+- Profile content (posts, store, collections, moments) and other users'
+  profiles.
 - Home feed (`w.ghp` → `sx`/`td0`), follows, chat/messaging, games,
   live/streaming.
-- Blobs, push notifications, billing/NFT/analytics namespaces.
+- Blobs for user-uploaded media, push notifications, billing/NFT/analytics
+  namespaces.
 
 ---
 
@@ -166,6 +169,8 @@ the cluster endpoint.
 ├── .gitignore
 ├── server/
 │   ├── server.py            # handshake, sessions and profile server
+│   ├── avatar.png          # default avatar served to the client
+│   ├── cover.png           # default profile cover
 │   ├── stub.py             # raw WebSocket logger (protocol debugging)
 │   ├── generate_keys.py    # creates server/keys.json
 │   └── requirements.txt
@@ -357,9 +362,9 @@ server/venv/bin/python server/stub.py
 
 ## Known limitations / roadmap
 
-- **Profile media/content**: the About screen renders, but the avatar is the
-  default placeholder and posts/store/collections/moments are empty because media
-  blobs and feed data are not implemented.
+- **Profile media/content**: the avatar and cover are local placeholder assets;
+  posts/store/collections/moments are empty because feed and media blobs are not
+  implemented.
 - **Home feed**: `w.ghp` → `sx`/`td0` is not implemented.
 - **Chat/messaging** is not implemented.
 - **Live/streaming** is not implemented; the original app relied on external

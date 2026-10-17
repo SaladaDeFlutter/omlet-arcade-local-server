@@ -2,10 +2,12 @@ import asyncio
 import base64
 import gzip
 import hashlib
+import http.server
 import json
 import logging
 import os
 import sys
+import threading
 import time
 import uuid
 
@@ -26,6 +28,27 @@ SERVER_PRIVATE = X25519PrivateKey.from_private_bytes(
     base64.b64decode(KEYS["private_b64"])
 )
 SERVER_PUBLIC_B64 = KEYS["public_b64"]
+
+AVATAR_PATH = os.path.join(BASE, "avatar.png")
+COVER_PATH = os.path.join(BASE, "cover.png")
+PUBLIC_HOST = os.environ.get("PUBLIC_HOST", "192.168.240.1")
+AVATAR_HTTP_URL = f"http://{PUBLIC_HOST}:8081/avatar.png"
+COVER_HTTP_URL = f"http://{PUBLIC_HOST}:8081/cover.png"
+BLOB_BASE = f"http://{PUBLIC_HOST}:8081/blob/"
+
+
+def file_blob_url(name, path):
+    if not os.path.exists(path):
+        return ""
+    with open(path, "rb") as fh:
+        digest = hashlib.md5(fh.read()).digest()
+    encoded = base64.b64encode(digest).decode("ascii")
+    encoded = encoded.replace("/", "_").replace("+", "-").replace("=", ".")
+    return f"longdan://{name}/" + encoded
+
+
+AVATAR_BLOB_URL = file_blob_url("avatar", AVATAR_PATH)
+COVER_BLOB_URL = file_blob_url("cover", COVER_PATH)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -143,11 +166,22 @@ def make_record(client_pub, api_key, account_id, omlet_id, scopes):
 
 def profile_about(record):
     now = int(time.time() * 1000)
+    omlet_id = record.get("omlet_id", "omletplayer")
+    community = {
+        "m": {"ci": AVATAR_BLOB_URL, "dn": omlet_id},
+        "cci": {"p": omlet_id, "cid": omlet_id, "ct": "App"},
+        "uci": [],
+        "c": 0,
+        "p": 0,
+        "l": 0,
+        "im": False,
+    }
     return {
-        "a": record.get("omlet_id", "omletplayer"),
+        "a": omlet_id,
         "al": record.get("created_ms", now),
         "lm": now,
-        "bg": "",
+        "bg": COVER_BLOB_URL,
+        "fc": community,
         "g": "Unknown",
         "p": [],
         "s": "Omlet Arcade guest",
@@ -178,6 +212,9 @@ def profile_detail(record):
         "v": 0,
         "pu": omlet_id,
         "i": [{"p": omlet_id, "t": "omlet"}],
+        "n": omlet_id,
+        "p": AVATAR_BLOB_URL,
+        "au": AVATAR_HTTP_URL,
     }
 
 
@@ -330,6 +367,17 @@ async def handler(ws, *args):
                     "g": {"d": [], "l": [], "m": [], "u": [], "w": []}
                 }
                 LOG.info("TOP_SUPPORTERS path=%s", path)
+            elif isinstance(q.get("b"), dict) and "dt" in q["b"]:
+                dt = q["b"].get("dt")
+                source = dt.get("l", "") if isinstance(dt, dict) else ""
+                url = COVER_HTTP_URL if "/cover/" in source else AVATAR_HTTP_URL
+                response["b"] = {
+                    "dt": {
+                        "dt": {"u": url, "h": {}},
+                        "pp": BLOB_BASE,
+                    }
+                }
+                LOG.info("BLOB_TICKET path=%s source=%s", path, source)
             else:
                 LOG.info(
                     "UNKNOWN path=%s keys=%s payload=%s",
@@ -346,8 +394,41 @@ async def handler(ws, *args):
         LOG.exception("handler error path=%s", path)
 
 
+class AvatarHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.startswith("/cover"):
+            path = COVER_PATH
+        elif self.path.startswith("/avatar") or self.path.startswith("/blob/"):
+            path = AVATAR_PATH
+        else:
+            self.send_error(404)
+            return
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, fmt, *args):
+        LOG.info("HTTP " + fmt, *args)
+
+
+def start_avatar_server():
+    server = http.server.ThreadingHTTPServer(("0.0.0.0", 8081), AvatarHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    LOG.info("avatar HTTP server listening on 0.0.0.0:8081")
+    LOG.info("avatar URL: %s", AVATAR_HTTP_URL)
+
+
 async def main():
     load_accounts()
+    start_avatar_server()
     async with websockets.serve(
         handler,
         "0.0.0.0",
