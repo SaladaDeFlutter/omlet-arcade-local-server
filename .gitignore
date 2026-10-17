@@ -1,0 +1,44 @@
+# AI-related docs and tooling (do not commit)
+AGENTS.md
+**/AGENTS.md
+CLAUDE.md
+**/CLAUDE.md
+COPILOT.md
+**/COPILOT.md
+**/copilot-instructions.md
+**/*.ai.md
+**/*agent*.md
+**/*assistant*.md
+.opencode/
+.cursor/
+.aider*
+
+# Secrets and signing material
+server/keys.json
+tools/*.keystore
+tools/*.jks
+*.pem
+*.key
+
+# Large / generated / copyrighted artifacts
+decompiled/
+patched/
+build/
+*.apk
+*.xapk
+*.apks
+jadx.log
+logs/
+
+# Python
+server/venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
