@@ -1,80 +1,82 @@
-# Omlet Arcade — Local Server (Study / Preservation)
+# Omlet Arcade — Servidor Local (Estudo / Preservação)
 
-Local backend and client-patching toolkit for **Omlet Arcade 1.111.9** (package
-`mobisocial.arcade`), discontinued in 2023.
+Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
+`mobisocial.arcade`), descontinuado em 2023.
 
-> **Status:** guest login and session resume work end-to-end. The patched client
-> completes the WebSocket handshake, creates a guest account, persists it and
-> resumes the session after a restart. The profile About screen renders the guest
-> name, level, zeroed counts, bio, avatar and cover (local placeholder assets).
-> The Home feed renders a local test post (author, title, description and
-> like/comment/share; the post image uses the default logo) and its post detail
-> opens text-only. Post likes toggle and persist across reloads, and comments
-> can be listed and added (in memory). Chat/live and feed media are **not**
-> implemented yet.
+> **Status:** login de convidado e retomada de sessão funcionam de ponta a ponta.
+> O cliente corrigido completa o handshake WebSocket, cria uma conta de convidado,
+> persiste e retoma a sessão após reiniciar. A tela Sobre do perfil renderiza
+> nome, nível, contadores zerados, bio, avatar e capa (assets locais de
+> placeholder). O feed Início renderiza um post de teste local (autor, título,
+> descrição e curtir/comentar/compartilhar; a imagem do post usa o logo padrão) e
+> o detalhe do post abre só com texto. Curtidas alternam e persistem entre
+> recarregamentos, e comentários podem ser listados e adicionados (em memória).
+> Chat/live e mídia do feed ainda **não** estão implementados.
 
-> **Disclaimer:** this is an unofficial reverse-engineering / preservation
-> project. It is not affiliated with Omlet, Mobisocial, or any of their partners.
-> No APK, proprietary source code, assets, credentials or user data are included
-> in this repository. Use it only with an APK you legally own, for personal study
-> and research.
+> **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
+> Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
+> proprietário, asset, credencial ou dado de usuário está incluído neste
+> repositório. Use apenas com um APK que você possui legalmente, para estudo
+> pessoal e pesquisa.
 
 ---
 
-## What works
+## O que funciona
 
-- X25519 challenge/response handshake for the client's custom **Longdan** RPC
-  protocol over WebSocket (`md0` → `nd0` → `he` → `ie`).
-- Omlet ID availability check (`ci` → `pz0`).
-- Guest account creation (`sc` → `nz0`/`z`) with cluster `ONE`.
-- Session resume after restarting the app (`qb` → `z`) backed by a local account
-  store (`server/accounts.json`, not committed).
-- Client reaches the Home UI logged in as a guest and keeps the session after a
-  restart.
-- Session/keepalive handling (`rp0` → `sp0`).
-- Profile requests:
-  - `gpa` → `ir0`/`hr0` (profile About);
-  - `p.c` → `z00`/`se` (profile details; the Omlet ID appears in Account
-    Settings);
-  - `w.gfc`, `w.gafc`, `w.guwc` → `pz0` (follower/following/posts counts);
+- Handshake challenge/response X25519 do protocolo RPC proprietário **Longdan**
+  do cliente sobre WebSocket (`md0` → `nd0` → `he` → `ie`).
+- Verificação de disponibilidade do Omlet ID (`ci` → `pz0`).
+- Criação de conta de convidado (`sc` → `nz0`/`z`) com cluster `ONE`.
+- Retomada de sessão após reiniciar o app (`qb` → `z`) apoiada por um
+  armazenamento local de contas (`server/accounts.json`, não versionado).
+- O cliente chega à tela Início logado como convidado e mantém a sessão após
+  reiniciar.
+- Sessão/keepalive (`rp0` → `sp0`).
+- Requisições de perfil:
+  - `gpa` → `ir0`/`hr0` (Sobre do perfil);
+  - `p.c` → `z00`/`se` (detalhes do perfil; o Omlet ID aparece em Configurações
+    da Conta);
+  - `w.gfc`, `w.gafc`, `w.guwc` → `pz0` (contadores de seguidores/seguindo/posts);
   - `p.gui` → `ra0` (shards);
-  - `ca.g` → `uu` (top supporters).
-- Profile avatar/cover blob tickets (`b.dt` → `wu`/`y7`) served by a local HTTP
-  asset server (`server/avatar.png`, `server/cover.png`).
-- The Profile About screen renders the guest name, level, zeroed counts, bio,
-  avatar and cover. Posts/store/collections/moments are empty.
-- Home feed: `w.ghp` → `sx`/`td0` returns a local test post with author
-  (`usr`/`dq0`), title/description and a link preview. The post media/image uses
-  the default Omlet logo. Opening the post detail works text-only (the `yl`/`vd`
-  booleans are filled to avoid the old `PostViewFragment` crash).
-- Post likes: the `w.l` (`jg0`) job updates the server-side like state; the feed
-  returns `yl` and the like count, so the heart/count persist across reloads.
-- Post comments: `w.gcvv` (`kt`) → `lt`/`xd` returns the comment list, and
-  `w.ac` (`f0`) appends a text comment; the comment sheet renders the list and
-  the feed returns the updated `cc` count. Comments are kept in memory.
-- Patched APK points every embedded endpoint to a local HTTP/WS server.
+  - `ca.g` → `uu` (top apoiadores).
+- Tickets de blob do avatar/capa do perfil (`b.dt` → `wu`/`y7`) servidos por um
+  servidor HTTP local de assets (`server/avatar.png`, `server/cover.png`).
+- A tela Sobre do perfil renderiza nome, nível, contadores zerados, bio, avatar e
+  capa. Posts/loja/coleções/momentos estão vazios.
+- Feed Início: `w.ghp` → `sx`/`td0` retorna um post de teste local com autor
+  (`usr`/`dq0`), título/descrição e preview de link. A mídia/imagem do post usa o
+  logo padrão da Omlet. Abrir o detalhe do post funciona só com texto (os
+  booleanos `yl`/`vd` são preenchidos para evitar o crash antigo do
+  `PostViewFragment`).
+- Curtidas em posts: o job `w.l` (`jg0`) atualiza o estado de curtida no servidor;
+  o feed retorna `yl` e a contagem, então o coração/contagem persistem entre
+  recarregamentos.
+- Comentários em posts: `w.gcvv` (`kt`) → `lt`/`xd` retorna a lista, e `w.ac`
+  (`f0`) adiciona um comentário de texto; a folha de comentários renderiza a lista
+  e o feed retorna o `cc` atualizado. Comentários ficam em memória.
+- APK corrigido aponta todos os endpoints embutidos para um servidor HTTP/WS local.
 
-Not implemented yet:
+Ainda não implementado:
 
-- Profile content (posts, store, collections, moments) and other users'
-  profiles.
-- Feed media/post images, multiple posts/pagination, comment threading/replies
-  and persistence, other interactions, follows, chat/messaging, games,
+- Conteúdo de perfil (posts, loja, coleções, momentos) e perfis de outros
+  usuários.
+- Mídia/imagens do feed, múltiplos posts/paginação, threading/respostas e
+  persistência de comentários, outras interações, seguir, chat/mensagens, jogos,
   live/streaming.
-- Blobs for user-uploaded media, push notifications, billing/NFT/analytics
-  namespaces.
+- Blobs para mídia enviada pelo usuário, notificações push, namespaces de
+  billing/NFT/analytics.
 
 ---
 
-## Architecture
+## Arquitetura
 
-The client talks to a proprietary RPC layer called **Longdan**:
+O cliente fala com uma camada RPC proprietária chamada **Longdan**:
 
-- Transport: **WebSocket**, JSON payloads (server → client responses may be
-  gzip-compressed; the client also gzips large requests if the server advertises
-  a max size).
-- Handshake: **X25519** using a per-install device key and server public keys
-  embedded in the APK resource `res/raw/oml_pk.json`.
+- Transporte: **WebSocket**, payloads JSON (respostas servidor → cliente podem ser
+  comprimidas com gzip; o cliente também comprime requisições grandes com gzip se
+  o servidor anunciar um tamanho máximo).
+- Handshake: **X25519** usando uma chave de dispositivo por instalação e chaves
+  públicas do servidor embutidas no recurso `res/raw/oml_pk.json` do APK.
 - Envelope:
 
 ```json
@@ -82,26 +84,26 @@ The client talks to a proprietary RPC layer called **Longdan**:
 {"r": {"#": <request-id>, "<category>": {"<method>": { ... }}}}
 ```
 
-For the IDP/auth connection (`/device`), the request container is `jl` and the
-response container is `kl` → `ml`. The message/read-only connection uses a
-different container pair.
+Para a conexão IDP/auth (`/device`), o container de requisição é `jl` e o de
+resposta é `kl` → `ml`. A conexão de mensagens/somente leitura usa outro par de
+containers.
 
-### Endpoints embedded in the APK
+### Endpoints embutidos no APK
 
-`res/raw/oml_pk.json` contains:
+`res/raw/oml_pk.json` contém:
 
-- `ClusterEndpoints` — ten regional clusters (us/sg/cn/de/in/ja/br/au/sk/use).
-- `IdpEndpoints` — identity provider endpoint.
-- `ReadOnlyEndpoints` — read-only content endpoint.
-- `ClusterKeys`, `IdpKey`, `ReadOnlyKey` — **server public keys**.
+- `ClusterEndpoints` — dez clusters regionais (us/sg/cn/de/in/ja/br/au/sk/use).
+- `IdpEndpoints` — endpoint do provedor de identidade.
+- `ReadOnlyEndpoints` — endpoint de conteúdo somente leitura.
+- `ClusterKeys`, `IdpKey`, `ReadOnlyKey` — **chaves públicas do servidor**.
 - `DefaultCluster` — `ONE`.
 
-The patch script replaces all of them with one local endpoint and one generated
-public key.
+O script de patch substitui todos eles por um endpoint local e uma chave pública
+gerada.
 
 ### Handshake
 
-The client connects to `<endpoint>/device` (or `/readonlydevice`) and sends:
+O cliente conecta em `<endpoint>/device` (ou `/readonlydevice`) e envia:
 
 ```json
 {"q":{"#":1,"*":{
@@ -113,7 +115,7 @@ The client connects to `<endpoint>/device` (or `/readonlydevice`) and sends:
 }}}
 ```
 
-The server computes:
+O servidor calcula:
 
 ```text
 shared = X25519(server_private, client_public)
@@ -121,7 +123,7 @@ server_nonce = random(32)
 digest  = SHA256(0x01 || shared || client_nonce)
 ```
 
-and replies:
+e responde:
 
 ```json
 {"r":{"#":1,"*":{
@@ -130,29 +132,29 @@ and replies:
 }}}
 ```
 
-The client verifies the digest, then sends `he` (`+`) with:
+O cliente verifica o digest e então envia `he` (`+`) com:
 
 ```text
 SHA256(0x02 || shared || server_nonce)
 ```
 
-The server replies with `ie` (`+`), which carries the closest cluster name:
+O servidor responde com `ie` (`+`), que carrega o nome do cluster mais próximo:
 
 ```json
 {"r":{"#":3,"+":{"l":"ONE"}}}
 ```
 
-### Guest login
+### Login de convidado
 
-1. `ci` checks whether an Omlet ID is available. Response: `pz0` (`=`), a
-   boolean stored under key `v`:
+1. `ci` verifica se um Omlet ID está disponível. Resposta: `pz0` (`=`), um
+   booleano armazenado na chave `v`:
 
 ```json
 {"r":{"#":7,"=":{"v":true}}}
 ```
 
-2. `sc` creates/signs in the guest account. The server answers with `nz0`
-   under `ml` key `sc`, inside `kl` key `a`:
+2. `sc` cria/entra na conta de convidado. O servidor responde com `nz0` sob a
+   chave `ml` `sc`, dentro da chave `kl` `a`:
 
 ```json
 {"r":{"#":8,"a":{"sc":{
@@ -169,12 +171,12 @@ The server replies with `ie` (`+`), which carries the closest cluster name:
 }}}}
 ```
 
-After that the client stores the account and reconnects the message channel to
-the cluster endpoint.
+Depois disso o cliente armazena a conta e reconecta o canal de mensagens ao
+endpoint do cluster.
 
 ---
 
-## Repository layout
+## Estrutura do repositório
 
 ```text
 .
@@ -182,99 +184,98 @@ the cluster endpoint.
 ├── LICENSE
 ├── .gitignore
 ├── server/
-│   ├── server.py            # handshake, sessions and profile server
-│   ├── avatar.png          # default avatar served to the client
-│   ├── cover.png           # default profile cover
-│   ├── stub.py             # raw WebSocket logger (protocol debugging)
-│   ├── generate_keys.py    # creates server/keys.json
+│   ├── server.py            # handshake, sessões e servidor de perfil
+│   ├── avatar.png          # avatar padrão servido ao cliente
+│   ├── cover.png           # capa padrão do perfil
+│   ├── stub.py             # logger WebSocket bruto (depuração de protocolo)
+│   ├── generate_keys.py    # cria server/keys.json
 │   └── requirements.txt
 └── scripts/
-    └── patch-apk.sh         # decode/patch/rebuild/sign the client APK
+    └── patch-apk.sh         # decodifica/corrige/reconstrói/assina o APK do cliente
 ```
 
-At runtime the server creates `server/accounts.json` to persist guest accounts
-across restarts. This file is ignored by Git.
+Em tempo de execução o servidor cria `server/accounts.json` para persistir contas
+de convidado entre reinícios. Esse arquivo é ignorado pelo Git.
 
-The original APK, the decompiled tree, the rebuilt APKs, logs, the private key
-and the signing keystore are intentionally **not** committed.
+O APK original, a árvore decompilada, os APKs reconstruídos, os logs, a chave
+privada e o keystore de assinatura **não** são versionados intencionalmente.
 
 ---
 
-## Requirements
+## Requisitos
 
-Tested on Arch Linux + Waydroid (LineageOS 20, x86_64). You need:
+Testado em Arch Linux + Waydroid (LineageOS 20, x86_64). Você precisa de:
 
-- Linux with Waydroid (or a physical Android device with ADB).
+- Linux com Waydroid (ou um dispositivo Android físico com ADB).
 - Python 3.11+.
 - `apktool`, `zipalign`, `apksigner`, `keytool` (Java).
-  - On Arch, `apktool` is available from AUR; build-tools provide
-    `zipalign`/`apksigner` (e.g. `/opt/android-sdk/build-tools/33.0.2`).
-- The original `omlet-arcade-1-111-9.apk` (not distributed here).
-- `adb` from `android-tools`.
+  - No Arch, `apktool` está disponível no AUR; as build-tools fornecem
+    `zipalign`/`apksigner` (ex.: `/opt/android-sdk/build-tools/33.0.2`).
+- O APK original `omlet-arcade-1-111-9.apk` (não distribuído aqui).
+- `adb` do pacote `android-tools`.
 
-The original APK embeds the app credentials (`omlet.apikey` and `omlet.secret`)
-in the manifest. The server does not need to know them; the client sends the API
-key during the handshake and the server accepts it. They are not included in this
-repository.
+O APK original embute as credenciais do app (`omlet.apikey` e `omlet.secret`) no
+manifest. O servidor não precisa conhecê-las; o cliente envia a API key durante o
+handshake e o servidor a aceita. Elas não estão incluídas neste repositório.
 
 ---
 
-## Quick start
+## Início rápido
 
-### 1. Python environment
+### 1. Ambiente Python
 
 ```bash
 python3 -m venv server/venv
 server/venv/bin/pip install -r server/requirements.txt
 ```
 
-### 2. Generate the local server keypair
+### 2. Gerar o par de chaves do servidor local
 
 ```bash
 python3 server/generate_keys.py
 ```
 
-This creates `server/keys.json` (private key + public key). **Never commit this
-file.** The public key is the one patched into the APK.
+Isso cria `server/keys.json` (chave privada + chave pública). **Nunca versione
+esse arquivo.** A chave pública é a que será embutida no APK.
 
-### 3. Patch the APK
+### 3. Corrigir o APK
 
 ```bash
 scripts/patch-apk.sh /path/to/omlet-arcade-1-111-9.apk
 ```
 
-Optional second argument overrides the host/port (default
-`192.168.240.1:8080`, the Waydroid host gateway):
+Um segundo argumento opcional sobrescreve o host/porta (padrão
+`192.168.240.1:8080`, o gateway do host no Waydroid):
 
 ```bash
 scripts/patch-apk.sh /path/to/omlet.apk 192.168.240.1:8080
 ```
 
-The script:
+O script:
 
-1. decodes resources/manifest with `apktool` (no smali changes);
-2. rewrites `res/raw/oml_pk.json` to point all endpoints to your host and to
-   use the public key from `server/keys.json`;
-3. enables cleartext traffic for the local host;
-4. enables the guest account flow (`omlet.guest=true`);
-5. rebuilds, aligns and signs with `tools/debug.keystore` (generated on demand).
+1. decodifica recursos/manifest com `apktool` (sem mudanças em smali);
+2. reescreve `res/raw/oml_pk.json` para apontar todos os endpoints para seu host e
+   usar a chave pública de `server/keys.json`;
+3. habilita tráfego cleartext para o host local;
+4. habilita o fluxo de conta de convidado (`omlet.guest=true`);
+5. reconstrói, alinha e assina com `tools/debug.keystore` (gerado sob demanda).
 
-Output: `patched/omlet-patched-signed.apk`.
+Saída: `patched/omlet-patched-signed.apk`.
 
-> The build is memory-hungry. Stop Waydroid and close heavy browsers before
-> running it. The script uses `-j1` and `-JXmx6g` to reduce memory pressure.
+> O build consome muita memória. Pare o Waydroid e feche navegadores pesados antes
+> de rodar. O script usa `-j1` e `-JXmx6g` para reduzir a pressão de memória.
 
 ### 4. Waydroid + ADB
 
 ```bash
 sudo systemctl enable --now waydroid-container
 waydroid session start &
-waydroid show-full-ui       # unfreeze / show Android UI
-waydroid adb connect        # or: adb connect 192.168.240.112:5555
+waydroid show-full-ui       # desbloqueia / mostra a UI do Android
+waydroid adb connect        # ou: adb connect 192.168.240.112:5555
 adb devices
 ```
 
-If ADB shows `unauthorized`, add your host key inside the container:
+Se o ADB mostrar `unauthorized`, adicione sua chave do host dentro do container:
 
 ```bash
 cat ~/.android/adbkey.pub | sudo waydroid shell -- \
@@ -284,62 +285,63 @@ sudo waydroid shell -- setprop ctl.restart adbd
 adb kill-server && adb connect 192.168.240.112:5555
 ```
 
-### 5. Install the patched APK
+### 5. Instalar o APK corrigido
 
-Unlike the original signature, the patched APK must replace the installed app:
+Diferente da assinatura original, o APK corrigido precisa substituir o app
+instalado:
 
 ```bash
 sudo waydroid shell -- pm uninstall mobisocial.arcade
 adb install -r -d patched/omlet-patched-signed.apk
 ```
 
-If `waydroid app install` exits instantly without installing (known helper
-issue), use `adb install` or push the APK to `/data/local/tmp` and run
-`pm install` manually.
+Se `waydroid app install` sair instantaneamente sem instalar (problema conhecido
+do helper), use `adb install` ou envie o APK para `/data/local/tmp` e rode
+`pm install` manualmente.
 
-### 6. Start the server
+### 6. Iniciar o servidor
 
 ```bash
 cd server
 nohup ./venv/bin/python server.py >> ../logs/server.log 2>&1 &
 ```
 
-The server listens on `0.0.0.0:8080`. The client reaches the host at
-`192.168.240.1:8080` from inside Waydroid.
+O servidor escuta em `0.0.0.0:8080`. O cliente alcança o host em
+`192.168.240.1:8080` de dentro do Waydroid.
 
-### 7. Launch the app
+### 7. Abrir o app
 
 ```bash
 adb shell am start -W -n mobisocial.arcade/.DEFAULT
 ```
 
-Create a guest account:
+Crie uma conta de convidado:
 
-1. tap **Create Account**;
-2. enter an ID (6–20 chars, lowercase letters, digits, dot, underscore);
-3. wait for the green check (`ci` succeeded);
-4. tap **CONTINUE** (`sc` creates the account);
-5. skip the optional gender/birthday onboarding.
+1. toque em **Create Account**;
+2. informe um ID (6–20 caracteres, letras minúsculas, dígitos, ponto, underscore);
+3. aguarde o check verde (`ci` deu certo);
+4. toque em **CONTINUE** (`sc` cria a conta);
+5. pule o onboarding opcional de gênero/aniversário.
 
-You should land on the Home UI.
+Você deve chegar à tela Início.
 
 ---
 
-## Protocol notes
+## Notas de protocolo
 
-### Request/response categories
+### Categorias de requisição/resposta
 
-On the IDP connection:
+Na conexão IDP:
 
-| Key | Meaning |
+| Chave | Significado |
 | --- | --- |
-| `*` | `md0` handshake request / `nd0` handshake response |
-| `+` | `he` hello completion / `ie` hello response |
-| `-` | `rp0` keepalive request / `sp0` keepalive response |
-| `a` | auth container (`ll` request / `ml` response) |
-| `=` | `pz0` generic response (used by `ci`) |
+| `*` | requisição de handshake `md0` / resposta de handshake `nd0` |
+| `+` | conclusão do hello `he` / resposta do hello `ie` |
+| `-` | requisição keepalive `rp0` / resposta keepalive `sp0` |
+| `a` | container de auth (requisição `ll` / resposta `ml`) |
+| `=` | resposta genérica `pz0` (usada por `ci`) |
 
-The `ci` check and `sc` sign-in live inside the `a` container:
+A verificação `ci` e o login `sc` ficam dentro do container `a`:
 
 ```json
 {"q":{"a":{"ci":{...}}}}
@@ -350,23 +352,23 @@ The `ci` check and `sc` sign-in live inside the `a` container:
 
 ### Keepalive
 
-The client sends `rp0` periodically:
+O cliente envia `rp0` periodicamente:
 
 ```json
 {"q":{"#":2,"-":{"l":0,"n":28000}}}
 ```
 
-Answer with the server timestamp:
+Responda com o timestamp do servidor:
 
 ```json
 {"r":{"#":2,"-":{"t":<epoch-ms>}}}
 ```
 
-### Debugging
+### Depuração
 
-`server/stub.py` is a raw WebSocket logger. It does not answer the handshake; it
-just prints paths and messages (text or gzip/binary) so you can capture exactly
-what the client sends.
+`server/stub.py` é um logger WebSocket bruto. Ele não responde ao handshake;
+apenas imprime paths e mensagens (texto ou gzip/binário) para você capturar
+exatamente o que o cliente envia.
 
 ```bash
 server/venv/bin/python server/stub.py
@@ -374,46 +376,47 @@ server/venv/bin/python server/stub.py
 
 ---
 
-## Known limitations / roadmap
+## Limitações conhecidas / roadmap
 
-- **Profile media/content**: the avatar and cover are local placeholder assets;
-  profile posts/store/collections/moments are empty.
-- **Home feed**: one local test post is served and its post detail opens
-  text-only; likes persist and comments can be listed/added in memory, but feed
-  media, multiple posts, pagination, comment persistence/threading and other
-  interactions are not implemented.
-- **Chat/messaging** is not implemented.
-- **Live/streaming** is not implemented; the original app relied on external
-  RTMP/SRT/WebRTC and third-party platforms.
-- **Blobs / push / billing / NFT / analytics** are not implemented.
-- Analytics/billing calls will log errors in the client UI; they are harmless for
-  the login/session/profile milestones.
+- **Mídia/conteúdo de perfil**: o avatar e a capa são assets locais de
+  placeholder; posts/loja/coleções/momentos do perfil estão vazios.
+- **Feed Início**: um post de teste local é servido e o detalhe abre só com
+  texto; curtidas persistem e comentários podem ser listados/adicionados em
+  memória, mas mídia do feed, múltiplos posts, paginação, persistência/threading
+  de comentários e outras interações não estão implementados.
+- **Chat/mensagens** não está implementado.
+- **Live/streaming** não está implementado; o app original dependia de
+  RTMP/SRT/WebRTC externos e plataformas de terceiros.
+- **Blobs / push / billing / NFT / analytics** não estão implementados.
+- Chamadas de analytics/billing vão logar erros na UI do cliente; são inofensivas
+  para os marcos de login/sessão/perfil.
 
 ---
 
-## Troubleshooting
+## Solução de problemas
 
-### Waydroid/Android graphics crash on startup
+### Crash gráfico do Waydroid/Android ao iniciar
 
-On some AMD/Mesa + Hyprland setups, starting Waydroid can crash the compositor
-together with `surfaceflinger` (a Mesa/GBM abort). Updating Mesa/Hyprland/kernel
-and firmware fixed it in our test. If it still happens, try software rendering:
+Em algumas configurações AMD/Mesa + Hyprland, iniciar o Waydroid pode derrubar o
+compositor junto com o `surfaceflinger` (um abort do Mesa/GBM). Atualizar
+Mesa/Hyprland/kernel e firmware resolveu no nosso teste. Se ainda acontecer,
+tente renderização por software:
 
 ```bash
 sudo waydroid prop set persist.waydroid.software_rendering true
 ```
 
-and avoid keeping the Waydroid UI open during heavy builds.
+e evite manter a UI do Waydroid aberta durante builds pesados.
 
-### `waydroid app install` returns success but installs nothing
+### `waydroid app install` retorna sucesso mas não instala nada
 
-This happened on Waydroid 1.6.3 with a large APK. Use ADB:
+Isso aconteceu no Waydroid 1.6.3 com um APK grande. Use ADB:
 
 ```bash
 adb install -r -d patched/omlet-patched-signed.apk
 ```
 
-or copy the APK to the container's `/data/local/tmp` and run:
+ou copie o APK para `/data/local/tmp` do container e rode:
 
 ```bash
 sudo waydroid shell -- pm install -r /data/local/tmp/omlet.apk
@@ -421,32 +424,32 @@ sudo waydroid shell -- pm install -r /data/local/tmp/omlet.apk
 
 ### ADB `unauthorized`
 
-Add `~/.android/adbkey.pub` to `/data/misc/adb/adb_keys` inside the container
-(see step 4) and restart `adbd`.
+Adicione `~/.android/adbkey.pub` a `/data/misc/adb/adb_keys` dentro do container
+(veja o passo 4) e reinicie o `adbd`.
 
-### Client cannot reach the server
+### O cliente não alcança o servidor
 
-- Confirm the server is listening: `ss -ltnp | grep 8080`.
-- Confirm the APK was patched with the same host as the server (default
+- Confirme que o servidor está escutando: `ss -ltnp | grep 8080`.
+- Confirme que o APK foi corrigido com o mesmo host do servidor (padrão
   `192.168.240.1:8080`).
-- Confirm cleartext HTTP is allowed in the patched
-  `network_security_config.xml`.
-- The public key in the APK must match `server/keys.json`; re-run the patch
-  script after regenerating keys.
+- Confirme que HTTP cleartext é permitido no
+  `network_security_config.xml` corrigido.
+- A chave pública no APK deve bater com `server/keys.json`; rode o script de
+  patch de novo após regerar as chaves.
 
 ---
 
 ## Legal
 
-Omlet Arcade, its client, protocol, trademarks and assets belong to their
-respective owners. This repository contains only original code and
-documentation produced for interoperability research. No APK, decompiled
-proprietary source, assets, credentials or user data are distributed here.
-Do not use this project to access other people's accounts or data, and do not
-redistribute modified APKs.
+Omlet Arcade, seu cliente, protocolo, marcas e assets pertencem aos respectivos
+donos. Este repositório contém apenas código e documentação originais produzidos
+para pesquisa de interoperabilidade. Nenhum APK, código proprietário
+decompilado, asset, credencial ou dado de usuário é distribuído aqui. Não use
+este projeto para acessar contas ou dados de outras pessoas, e não redistribua
+APKs modificados.
 
-## License
+## Licença
 
-The code and documentation in this repository are released under the MIT
-License (see `LICENSE`). This license does **not** grant any rights to Omlet
-Arcade or third-party intellectual property.
+O código e a documentação deste repositório são liberados sob a Licença MIT (veja
+`LICENSE`). Esta licença **não** concede quaisquer direitos sobre o Omlet Arcade
+ou propriedade intelectual de terceiros.
