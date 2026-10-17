@@ -10,8 +10,9 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
 > placeholder). O feed Início renderiza um post de teste local (autor, título,
 > descrição e curtir/comentar/compartilhar; a imagem do post usa o logo padrão) e
 > o detalhe do post abre só com texto. Curtidas alternam e persistem entre
-> recarregamentos, e comentários podem ser listados e adicionados (em memória).
-> Chat/live e mídia do feed ainda **não** estão implementados.
+> recarregamentos e reinícios do servidor; comentários podem ser listados e
+> adicionados, e também persistem em disco (`server/state.json`). Chat/live e
+> mídia do feed ainda **não** estão implementados.
 
 > **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
 > Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
@@ -50,10 +51,11 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
   `PostViewFragment`).
 - Curtidas em posts: o job `w.l` (`jg0`) atualiza o estado de curtida no servidor;
   o feed retorna `yl` e a contagem, então o coração/contagem persistem entre
-  recarregamentos.
+  recarregamentos e reinícios do servidor.
 - Comentários em posts: `w.gcvv` (`kt`) → `lt`/`xd` retorna a lista, e `w.ac`
   (`f0`) adiciona um comentário de texto; a folha de comentários renderiza a lista
-  e o feed retorna o `cc` atualizado. Comentários ficam em memória.
+  e o feed retorna o `cc` atualizado. Curtidas e comentários são gravados em
+  `server/state.json` (JSON local, escrita atômica).
 - APK corrigido aponta todos os endpoints embutidos para um servidor HTTP/WS local.
 
 Ainda não implementado:
@@ -61,7 +63,7 @@ Ainda não implementado:
 - Conteúdo de perfil (posts, loja, coleções, momentos) e perfis de outros
   usuários.
 - Mídia/imagens do feed, múltiplos posts/paginação, threading/respostas e
-  persistência de comentários, outras interações, seguir, chat/mensagens, jogos,
+  curtidas por usuário, outras interações, seguir, chat/mensagens, jogos,
   live/streaming.
 - Blobs para mídia enviada pelo usuário, notificações push, namespaces de
   billing/NFT/analytics.
@@ -195,7 +197,10 @@ endpoint do cluster.
 ```
 
 Em tempo de execução o servidor cria `server/accounts.json` para persistir contas
-de convidado entre reinícios. Esse arquivo é ignorado pelo Git.
+de convidado entre reinícios e `server/state.json` para persistir curtidas e
+comentários por post. Esses arquivos são ignorados pelo Git. Não há banco de
+dados: a persistência usa JSON local com escrita atômica; SQLite é a evolução
+natural caso o projeto passe a ter múltiplos usuários ou mais concorrência.
 
 O APK original, a árvore decompilada, os APKs reconstruídos, os logs, a chave
 privada e o keystore de assinatura **não** são versionados intencionalmente.
@@ -381,9 +386,9 @@ server/venv/bin/python server/stub.py
 - **Mídia/conteúdo de perfil**: o avatar e a capa são assets locais de
   placeholder; posts/loja/coleções/momentos do perfil estão vazios.
 - **Feed Início**: um post de teste local é servido e o detalhe abre só com
-  texto; curtidas persistem e comentários podem ser listados/adicionados em
-  memória, mas mídia do feed, múltiplos posts, paginação, persistência/threading
-  de comentários e outras interações não estão implementados.
+  texto; curtidas e comentários persistem em disco, mas mídia do feed, múltiplos
+  posts, paginação, threading/respostas e outras interações não estão
+  implementados.
 - **Chat/mensagens** não está implementado.
 - **Live/streaming** não está implementado; o app original dependia de
   RTMP/SRT/WebRTC externos e plataformas de terceiros.

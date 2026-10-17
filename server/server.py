@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
 BASE = os.path.dirname(os.path.abspath(__file__))
 KEYS_PATH = os.path.join(BASE, "keys.json")
 ACCOUNTS_PATH = os.path.join(BASE, "accounts.json")
+STATE_PATH = os.path.join(BASE, "state.json")
 
 with open(KEYS_PATH, "r", encoding="utf-8") as fh:
     KEYS = json.load(fh)
@@ -59,8 +60,8 @@ logging.basicConfig(
 LOG = logging.getLogger("omlet")
 
 ACCOUNTS = []
-POST_STATE = {"liked": False, "count": 0}
-COMMENTS = []
+LOCAL_POST_ID = "local-post-1"
+POSTS = {}
 
 
 def b64d(value):
@@ -102,6 +103,51 @@ def save_accounts():
         json.dump({"records": ACCOUNTS}, fh, indent=2)
         fh.write("\n")
     os.replace(tmp, ACCOUNTS_PATH)
+
+
+def empty_post_state():
+    return {"liked": False, "count": 0, "comments": []}
+
+
+def load_state():
+    global POSTS
+    POSTS = {}
+    if not os.path.exists(STATE_PATH):
+        return
+    try:
+        with open(STATE_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        posts = data.get("posts", {})
+        if not isinstance(posts, dict):
+            return
+        for post_id, post_state in posts.items():
+            if not isinstance(post_state, dict):
+                continue
+            comments = post_state.get("comments", [])
+            POSTS[post_id] = {
+                "liked": bool(post_state.get("liked", False)),
+                "count": max(0, int(post_state.get("count", 0))),
+                "comments": comments if isinstance(comments, list) else [],
+            }
+    except Exception as exc:
+        LOG.error("could not load state.json: %r", exc)
+        POSTS = {}
+
+
+def save_state():
+    tmp = STATE_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump({"posts": POSTS}, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+    os.replace(tmp, STATE_PATH)
+
+
+def get_post_state(post_id=LOCAL_POST_ID):
+    post_state = POSTS.get(post_id)
+    if post_state is None:
+        post_state = empty_post_state()
+        POSTS[post_id] = post_state
+    return post_state
 
 
 def find_account(client_pub=None, account_id=None):
@@ -390,9 +436,12 @@ async def handler(ws, *args):
                     list(q["w"].keys()),
                 )
             elif isinstance(q.get("w"), dict) and "gcvv" in q["w"]:
-                response["w"] = {"gcvv": {"C": COMMENTS}}
+                post_state = get_post_state()
+                response["w"] = {"gcvv": {"C": post_state["comments"]}}
                 LOG.info(
-                    "COMMENTS_LIST path=%s count=%d", path, len(COMMENTS)
+                    "COMMENTS_LIST path=%s count=%d",
+                    path,
+                    len(post_state["comments"]),
                 )
             elif isinstance(q.get("w"), dict) and "ac" in q["w"]:
                 add_req = q["w"]["ac"] or {}
@@ -408,28 +457,32 @@ async def handler(ws, *args):
                         state.get("api", ""),
                         None,
                     )
-                COMMENTS.append(make_comment(record, text))
+                post_state = get_post_state()
+                post_state["comments"].append(make_comment(record, text))
+                save_state()
                 response["="] = {"v": True}
                 LOG.info(
                     "COMMENT_ADD path=%s text=%r count=%d",
                     path,
                     text,
-                    len(COMMENTS),
+                    len(post_state["comments"]),
                 )
             elif isinstance(q.get("w"), dict) and "l" in q["w"]:
                 like_req = q["w"]["l"] or {}
                 liked = bool(like_req.get("l", False)) if isinstance(like_req, dict) else False
-                if liked != POST_STATE["liked"]:
-                    POST_STATE["count"] = max(
-                        0, POST_STATE["count"] + (1 if liked else -1)
+                post_state = get_post_state()
+                if liked != post_state["liked"]:
+                    post_state["count"] = max(
+                        0, post_state["count"] + (1 if liked else -1)
                     )
-                    POST_STATE["liked"] = liked
+                    post_state["liked"] = liked
+                    save_state()
                 response["="] = {"v": True}
                 LOG.info(
                     "LIKE path=%s liked=%s count=%s",
                     path,
                     liked,
-                    POST_STATE["count"],
+                    post_state["count"],
                 )
             elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
                 record = find_account(client_pub=state.get("client_pub"))
@@ -440,8 +493,9 @@ async def handler(ws, *args):
                         None,
                     )
                 now = int(time.time() * 1000)
+                post_state = get_post_state()
                 post = {
-                    "i": "local-post-1",
+                    "i": LOCAL_POST_ID,
                     "a": profile_about(record),
                     "P": {
                         "m": {
@@ -473,9 +527,9 @@ async def handler(ws, *args):
                             "gi": [],
                             "g": [],
                             "ct": now,
-                            "cc": len(COMMENTS),
-                            "l": POST_STATE["count"],
-                            "yl": POST_STATE["liked"],
+                            "cc": len(post_state["comments"]),
+                            "l": post_state["count"],
+                            "yl": post_state["liked"],
                             "vd": False,
                         }
                     },
@@ -553,6 +607,7 @@ def start_avatar_server():
 
 async def main():
     load_accounts()
+    load_state()
     start_avatar_server()
     async with websockets.serve(
         handler,

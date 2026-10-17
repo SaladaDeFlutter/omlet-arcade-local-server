@@ -16,6 +16,8 @@ COPILOT.md
 # Secrets and signing material
 server/keys.json
 server/accounts.json
+server/state.json
+server/state.json.tmp
 tools/*.keystore
 tools/*.jks
 *.pem
