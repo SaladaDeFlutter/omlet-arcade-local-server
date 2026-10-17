@@ -65,6 +65,12 @@ LOCAL_COMMUNITY_ID = "local-community"
 LOCAL_CHANNEL_ID = "local-community-general"
 POSTS = {}
 CHANNELS = {}
+COMMUNITY = {
+    "name": "Comunidade Local",
+    "description": "Comunidade local de testes",
+    "icon": AVATAR_BLOB_URL,
+    "cover": COVER_BLOB_URL,
+}
 
 
 def b64d(value):
@@ -113,9 +119,15 @@ def empty_post_state():
 
 
 def load_state():
-    global POSTS, CHANNELS
+    global POSTS, CHANNELS, COMMUNITY
     POSTS = {}
     CHANNELS = {}
+    COMMUNITY = {
+        "name": "Comunidade Local",
+        "description": "Comunidade local de testes",
+        "icon": AVATAR_BLOB_URL,
+        "cover": COVER_BLOB_URL,
+    }
     if not os.path.exists(STATE_PATH):
         return
     try:
@@ -142,6 +154,12 @@ def load_state():
                     CHANNELS[channel_id] = {
                         "messages": channel_state["messages"]
                     }
+        community = data.get("community")
+        if isinstance(community, dict):
+            for key in ("name", "description", "icon", "cover"):
+                value = community.get(key)
+                if isinstance(value, str) and value:
+                    COMMUNITY[key] = value
     except Exception as exc:
         LOG.error("could not load state.json: %r", exc)
         POSTS = {}
@@ -152,7 +170,11 @@ def save_state():
     tmp = STATE_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(
-            {"posts": POSTS, "channels": CHANNELS},
+            {
+                "posts": POSTS,
+                "channels": CHANNELS,
+                "community": COMMUNITY,
+            },
             fh,
             indent=2,
             ensure_ascii=False,
@@ -248,9 +270,7 @@ def session_z(record):
     z["e"] = True
     z["p"] = False
     profile = dict(z.get("a", {}))
-    profile.pop("i", None)
-    profile["i"] = True
-    profile["c"] = []
+    profile["h"] = True
     z["a"] = profile
     return z
 
@@ -344,8 +364,8 @@ def local_channel_eo():
 def local_community_info():
     return {
         "cid": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
-        "n": "Comunidade Local",
-        "i": AVATAR_BLOB_URL,
+        "n": COMMUNITY["name"],
+        "i": COMMUNITY["icon"],
         "ll": [],
         "sq": False,
     }
@@ -399,10 +419,10 @@ def local_community_ee(record):
         "l": 0,
         "im": False,
         "m": {
-            "dn": "Comunidade Local",
-            "ci": AVATAR_BLOB_URL,
-            "b": COVER_BLOB_URL,
-            "d": "Comunidade local de testes",
+            "dn": COMMUNITY["name"],
+            "ci": COMMUNITY["icon"],
+            "b": COMMUNITY["cover"],
+            "d": COMMUNITY["description"],
             "al": [record.get("account_id", "")],
         },
         "t": now,
@@ -795,6 +815,54 @@ async def handler(ws, *args):
             elif isinstance(q.get("w"), dict) and "licu" in q["w"]:
                 response["w"] = {"gcm": {"c": [], "p": 0}}
                 LOG.info("COMMUNITIES path=%s count=0", path)
+            elif isinstance(q.get("w"), dict) and "ut" in q["w"]:
+                response["w"] = {
+                    "ut": {"ut": {"a": True, "l": AVATAR_BLOB_URL}}
+                }
+                LOG.info("BLOB_UPLOAD path=%s category=w", path)
+            elif isinstance(q.get("w"), dict) and "lrcmc" in q["w"]:
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                response["w"] = {
+                    "lrcmc": {"cic": [local_community_ee(record)]}
+                }
+                LOG.info("BROWSE_COMMUNITIES path=%s count=1", path)
+            elif isinstance(q.get("w"), dict) and "cmc" in q["w"]:
+                create_req = q["w"]["cmc"] or {}
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                if isinstance(create_req, dict):
+                    name = create_req.get("n")
+                    if isinstance(name, str) and name.strip():
+                        COMMUNITY["name"] = name.strip()[:50]
+                    description = create_req.get("d")
+                    if isinstance(description, str) and description.strip():
+                        COMMUNITY["description"] = description.strip()[:1500]
+                    icon = create_req.get("i")
+                    if isinstance(icon, str) and icon:
+                        COMMUNITY["icon"] = icon
+                    cover = create_req.get("b")
+                    if isinstance(cover, str) and cover:
+                        COMMUNITY["cover"] = cover
+                save_state()
+                community = local_community_ee(record)
+                response["w"] = {"cmc": {"cic": community}}
+                LOG.info(
+                    "CREATE_COMMUNITY path=%s name=%r description=%r",
+                    path,
+                    COMMUNITY["name"],
+                    COMMUNITY["description"],
+                )
             elif isinstance(q.get("w"), dict) and "lmcf" in q["w"]:
                 response["w"] = {
                     "lmcf": {"df": [], "f": [local_channel_io()]}
@@ -848,6 +916,11 @@ async def handler(ws, *args):
                     "g": {"d": [], "l": [], "m": [], "u": [], "w": []}
                 }
                 LOG.info("TOP_SUPPORTERS path=%s", path)
+            elif isinstance(q.get("b"), dict) and "ut" in q["b"]:
+                response["b"] = {
+                    "ut": {"ut": {"a": True, "l": AVATAR_BLOB_URL}}
+                }
+                LOG.info("BLOB_UPLOAD path=%s category=b", path)
             elif isinstance(q.get("b"), dict) and "dt" in q["b"]:
                 dt = q["b"].get("dt")
                 source = dt.get("l", "") if isinstance(dt, dict) else ""
