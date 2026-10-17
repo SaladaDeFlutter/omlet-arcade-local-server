@@ -333,9 +333,19 @@ def local_community_info():
     return {
         "cid": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
         "n": "Comunidade Local",
-        "i": AVATAR_HTTP_URL,
+        "i": AVATAR_BLOB_URL,
         "ll": [],
         "sq": False,
+    }
+
+
+def local_channel_io():
+    return {
+        "f": local_channel_eo(),
+        "n": "geral",
+        "ci": local_community_info(),
+        "mc": 1,
+        "td": "Canal de texto da comunidade",
     }
 
 
@@ -368,7 +378,7 @@ def make_channel_message(record, text):
     }
 
 
-def local_community_ee():
+def local_community_ee(record):
     now = int(time.time() * 1000)
     return {
         "cci": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
@@ -378,8 +388,10 @@ def local_community_ee():
         "im": False,
         "m": {
             "dn": "Comunidade Local",
-            "ci": AVATAR_HTTP_URL,
-            "b": COVER_HTTP_URL,
+            "ci": AVATAR_BLOB_URL,
+            "b": COVER_BLOB_URL,
+            "d": "Comunidade local de testes",
+            "al": [record.get("account_id", "")],
         },
         "t": now,
     }
@@ -564,11 +576,13 @@ async def handler(ws, *args):
             elif isinstance(q.get("w"), dict) and any(
                 key in q["w"] for key in ("gfc", "gafc", "guwc")
             ):
-                response["="] = {"v": 0}
+                keys = list(q["w"].keys())
+                response["="] = {"v": 1 if "guwc" in keys else 0}
                 LOG.info(
-                    "COUNT path=%s keys=%s",
+                    "COUNT path=%s keys=%s value=%s",
                     path,
-                    list(q["w"].keys()),
+                    keys,
+                    response["="]["v"],
                 )
             elif isinstance(q.get("w"), dict) and "gcvv" in q["w"]:
                 post_state = get_post_state()
@@ -725,6 +739,24 @@ async def handler(ws, *args):
                         path,
                         item_type,
                     )
+            elif isinstance(q.get("w"), dict) and any(
+                key in q["w"] for key in ("grp", "gtp", "grgw")
+            ):
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                post_state = get_post_state()
+                post = make_feed_post(record, post_state)
+                response["w"] = {"w": {"w": {"p": [post["P"]]}}}
+                LOG.info(
+                    "COMMUNITY_POSTS path=%s keys=%s count=1",
+                    path,
+                    list(q["w"].keys()),
+                )
             elif isinstance(q.get("w"), dict) and "gcfr" in q["w"]:
                 record = find_account(client_pub=state.get("client_pub"))
                 if record is None:
@@ -737,13 +769,40 @@ async def handler(ws, *args):
                 post = make_feed_post(record, post_state)
                 header = {
                     "i": "my-communities",
-                    "c": [local_community_ee()],
+                    "c": [local_community_ee(record)],
                 }
                 response["w"] = {"ghp": {"p": [header, post]}}
                 LOG.info("COMMUNITY_FEED path=%s count=2", path)
             elif isinstance(q.get("w"), dict) and "licu" in q["w"]:
                 response["w"] = {"gcm": {"c": [], "p": 0}}
                 LOG.info("COMMUNITIES path=%s count=0", path)
+            elif isinstance(q.get("w"), dict) and "lmcf" in q["w"]:
+                response["w"] = {
+                    "lmcf": {"df": [], "f": [local_channel_io()]}
+                }
+                LOG.info("COMMUNITY_CHANNELS path=%s count=1", path)
+            elif isinstance(q.get("w"), dict) and "lmmc" in q["w"]:
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                response["w"] = {
+                    "lmmc": {
+                        "f": [
+                            {
+                                "a": record.get("account_id", ""),
+                                "n": record.get("omlet_id", "omletplayer"),
+                                "p": AVATAR_BLOB_URL,
+                                "vfs": [],
+                                "fs": False,
+                            }
+                        ]
+                    }
+                }
+                LOG.info("COMMUNITY_MEMBERS path=%s count=1", path)
             elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
                 record = find_account(client_pub=state.get("client_pub"))
                 if record is None:
@@ -756,6 +815,12 @@ async def handler(ws, *args):
                 post = make_feed_post(record, post_state)
                 response["w"] = {"ghp": {"p": [post]}}
                 LOG.info("FEED path=%s post=%s", path, post["i"])
+            elif isinstance(q.get("p"), dict) and "sab" in q["p"]:
+                response["="] = {"v": True}
+                LOG.info("SET_BIRTHDAY path=%s", path)
+            elif isinstance(q.get("p"), dict) and "spgr" in q["p"]:
+                response["="] = {"v": True}
+                LOG.info("SET_GENDER path=%s", path)
             elif isinstance(q.get("p"), dict) and "gui" in q["p"]:
                 response["p"] = {"gui": {"ii": {}}}
                 LOG.info("SHARDS path=%s", path)
