@@ -60,6 +60,7 @@ LOG = logging.getLogger("omlet")
 
 ACCOUNTS = []
 POST_STATE = {"liked": False, "count": 0}
+COMMENTS = []
 
 
 def b64d(value):
@@ -219,6 +220,34 @@ def profile_detail(record):
     }
 
 
+def comment_author(record):
+    return {
+        "a": record.get("account_id", ""),
+        "n": record.get("omlet_id", "omletplayer"),
+        "p": AVATAR_BLOB_URL,
+        "vfs": [],
+    }
+
+
+def comment_subject(record):
+    return {
+        "a": record.get("account_id", ""),
+        "t": "Message",
+        "id": b64e(record.get("account_id", "").encode("utf-8")),
+    }
+
+
+def make_comment(record, text):
+    return {
+        "i": b64e(os.urandom(8)),
+        "T": "TEXT",
+        "b": b64e(text.encode("utf-8")),
+        "t": int(time.time() * 1000),
+        "u": comment_author(record),
+        "p": comment_subject(record),
+    }
+
+
 async def handler(ws, *args):
     try:
         path = ws.request.path
@@ -360,6 +389,33 @@ async def handler(ws, *args):
                     path,
                     list(q["w"].keys()),
                 )
+            elif isinstance(q.get("w"), dict) and "gcvv" in q["w"]:
+                response["w"] = {"gcvv": {"C": COMMENTS}}
+                LOG.info(
+                    "COMMENTS_LIST path=%s count=%d", path, len(COMMENTS)
+                )
+            elif isinstance(q.get("w"), dict) and "ac" in q["w"]:
+                add_req = q["w"]["ac"] or {}
+                text = ""
+                if isinstance(add_req, dict):
+                    raw_text = add_req.get("b")
+                    if raw_text:
+                        text = b64d(raw_text).decode("utf-8", "replace")
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                COMMENTS.append(make_comment(record, text))
+                response["="] = {"v": True}
+                LOG.info(
+                    "COMMENT_ADD path=%s text=%r count=%d",
+                    path,
+                    text,
+                    len(COMMENTS),
+                )
             elif isinstance(q.get("w"), dict) and "l" in q["w"]:
                 like_req = q["w"]["l"] or {}
                 liked = bool(like_req.get("l", False)) if isinstance(like_req, dict) else False
@@ -417,7 +473,7 @@ async def handler(ws, *args):
                             "gi": [],
                             "g": [],
                             "ct": now,
-                            "cc": 0,
+                            "cc": len(COMMENTS),
                             "l": POST_STATE["count"],
                             "yl": POST_STATE["liked"],
                             "vd": False,
