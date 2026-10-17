@@ -11,8 +11,10 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
 > descrição e curtir/comentar/compartilhar; a imagem do post usa o logo padrão) e
 > o detalhe do post abre só com texto. Curtidas alternam e persistem entre
 > recarregamentos e reinícios do servidor; comentários podem ser listados e
-> adicionados, e também persistem em disco (`server/state.json`). Chat/live e
-> mídia do feed ainda **não** estão implementados.
+> adicionados, e também persistem em disco (`server/state.json`). A aba **Canais**
+> lista a Comunidade Local com o canal de texto “geral”; as mensagens são
+> carregadas, enviadas e persistidas. DMs, live e mídia do feed ainda **não**
+> estão implementados.
 
 > **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
 > Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
@@ -56,6 +58,10 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
   (`f0`) adiciona um comentário de texto; a folha de comentários renderiza a lista
   e o feed retorna o `cc` atualizado. Curtidas e comentários são gravados em
   `server/state.json` (JSON local, escrita atômica).
+- Comunidades/canais de texto: a aba Channels pede `i.f` com
+  `ibt=CommunityFeedChannels` e recebe um `ho` da Comunidade Local/canal “geral”;
+  abrir o canal consulta `m.gmfc` (`m.wd`/`lm0`) e enviar texto usa `m.o`, com as
+  mensagens persistidas em `server/state.json`.
 - APK corrigido aponta todos os endpoints embutidos para um servidor HTTP/WS local.
 
 Ainda não implementado:
@@ -63,7 +69,8 @@ Ainda não implementado:
 - Conteúdo de perfil (posts, loja, coleções, momentos) e perfis de outros
   usuários.
 - Mídia/imagens do feed, múltiplos posts/paginação, threading/respostas e
-  curtidas por usuário, outras interações, seguir, chat/mensagens, jogos,
+  curtidas por usuário, outras interações, seguir, descoberta/criação de
+  comunidades, múltiplos canais, cargos, anexos/reações, DMs, jogos,
   live/streaming.
 - Blobs para mídia enviada pelo usuário, notificações push, namespaces de
   billing/NFT/analytics.
@@ -197,8 +204,8 @@ endpoint do cluster.
 ```
 
 Em tempo de execução o servidor cria `server/accounts.json` para persistir contas
-de convidado entre reinícios e `server/state.json` para persistir curtidas e
-comentários por post. Esses arquivos são ignorados pelo Git. Não há banco de
+de convidado entre reinícios e `server/state.json` para persistir curtidas,
+comentários e mensagens de canais. Esses arquivos são ignorados pelo Git. Não há banco de
 dados: a persistência usa JSON local com escrita atômica; SQLite é a evolução
 natural caso o projeto passe a ter múltiplos usuários ou mais concorrência.
 
@@ -369,6 +376,20 @@ Responda com o timestamp do servidor:
 {"r":{"#":2,"-":{"t":<epoch-ms>}}}
 ```
 
+### Comunidades e canais de texto
+
+- `i.f` com `ibt: "CommunityFeedChannels"` → `i.f.f`, uma lista de `ho`. Cada
+  `ho` traz `eo` (`a` = id do feed, `k` = chave), `n` = nome, `a` = acceptance,
+  `mc` = membros e `fc` = informação da comunidade (`tn`).
+- Abrir o canal: `m.gmfc` (`f` = `eo`, `m` = `Before`/`After`/`Around`, `n`, `t`)
+  → `m.wd` (`sz`) com `c` = lista de `lm0`, `s` = mapa de `k51` (remetentes) e
+  `fd` = detalhes do feed.
+- `lm0`: `i` = `e31` (`t` = tipo, `i` = id), `t` = timestamp em
+  **microssegundos**, `s` = id do remetente, `b` = corpo JSON em base64
+  (`{"text": "...", "profileVersion": 0}`), `f` = `eo` e `d` = deleted.
+- Enviar texto (e reações): `m.o` (`p0`) com `b`, `f`, `i`, `v`, `w`; resposta
+  `pz0` (`=`). O servidor grava textos em `state.json` e confirma reações.
+
 ### Depuração
 
 `server/stub.py` é um logger WebSocket bruto. Ele não responde ao handshake;
@@ -389,7 +410,10 @@ server/venv/bin/python server/stub.py
   texto; curtidas e comentários persistem em disco, mas mídia do feed, múltiplos
   posts, paginação, threading/respostas e outras interações não estão
   implementados.
-- **Chat/mensagens** não está implementado.
+- **Comunidades/canais**: existe apenas uma comunidade/canal local fixo;
+  descoberta, criação, entrada/saída, múltiplos canais, cargos, anexos, reações
+  e DMs/voz não estão implementados. Alguns requests auxiliares (`m.l`, `i.sfl`,
+  `ps.gvs`) ainda não têm resposta.
 - **Live/streaming** não está implementado; o app original dependia de
   RTMP/SRT/WebRTC externos e plataformas de terceiros.
 - **Blobs / push / billing / NFT / analytics** não estão implementados.

@@ -61,7 +61,10 @@ LOG = logging.getLogger("omlet")
 
 ACCOUNTS = []
 LOCAL_POST_ID = "local-post-1"
+LOCAL_COMMUNITY_ID = "local-community"
+LOCAL_CHANNEL_ID = "local-community-general"
 POSTS = {}
+CHANNELS = {}
 
 
 def b64d(value):
@@ -110,34 +113,50 @@ def empty_post_state():
 
 
 def load_state():
-    global POSTS
+    global POSTS, CHANNELS
     POSTS = {}
+    CHANNELS = {}
     if not os.path.exists(STATE_PATH):
         return
     try:
         with open(STATE_PATH, "r", encoding="utf-8") as fh:
             data = json.load(fh)
         posts = data.get("posts", {})
-        if not isinstance(posts, dict):
-            return
-        for post_id, post_state in posts.items():
-            if not isinstance(post_state, dict):
-                continue
-            comments = post_state.get("comments", [])
-            POSTS[post_id] = {
-                "liked": bool(post_state.get("liked", False)),
-                "count": max(0, int(post_state.get("count", 0))),
-                "comments": comments if isinstance(comments, list) else [],
-            }
+        if isinstance(posts, dict):
+            for post_id, post_state in posts.items():
+                if not isinstance(post_state, dict):
+                    continue
+                comments = post_state.get("comments", [])
+                POSTS[post_id] = {
+                    "liked": bool(post_state.get("liked", False)),
+                    "count": max(0, int(post_state.get("count", 0))),
+                    "comments": comments if isinstance(comments, list) else [],
+                }
+        channels = data.get("channels", {})
+        if isinstance(channels, dict):
+            for channel_id, channel_state in channels.items():
+                if (
+                    isinstance(channel_state, dict)
+                    and isinstance(channel_state.get("messages"), list)
+                ):
+                    CHANNELS[channel_id] = {
+                        "messages": channel_state["messages"]
+                    }
     except Exception as exc:
         LOG.error("could not load state.json: %r", exc)
         POSTS = {}
+        CHANNELS = {}
 
 
 def save_state():
     tmp = STATE_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump({"posts": POSTS}, fh, indent=2, ensure_ascii=False)
+        json.dump(
+            {"posts": POSTS, "channels": CHANNELS},
+            fh,
+            indent=2,
+            ensure_ascii=False,
+        )
         fh.write("\n")
     os.replace(tmp, STATE_PATH)
 
@@ -148,6 +167,18 @@ def get_post_state(post_id=LOCAL_POST_ID):
         post_state = empty_post_state()
         POSTS[post_id] = post_state
     return post_state
+
+
+def empty_channel_state():
+    return {"messages": []}
+
+
+def get_channel_state(channel_id=LOCAL_CHANNEL_ID):
+    channel_state = CHANNELS.get(channel_id)
+    if channel_state is None:
+        channel_state = empty_channel_state()
+        CHANNELS[channel_id] = channel_state
+    return channel_state
 
 
 def find_account(client_pub=None, account_id=None):
@@ -291,6 +322,49 @@ def make_comment(record, text):
         "t": int(time.time() * 1000),
         "u": comment_author(record),
         "p": comment_subject(record),
+    }
+
+
+def local_channel_eo():
+    return {"a": LOCAL_CHANNEL_ID, "k": b64e(b"omlet-local-channel")}
+
+
+def local_community_info():
+    return {
+        "cid": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
+        "n": "Comunidade Local",
+        "i": AVATAR_HTTP_URL,
+        "ll": [],
+        "sq": False,
+    }
+
+
+def local_channel_feed():
+    now = int(time.time() * 1000)
+    return {
+        "f": local_channel_eo(),
+        "n": "geral",
+        "a": "Yes",
+        "mc": 1,
+        "fc": local_community_info(),
+        "lrt": now,
+        "ibt": "CommunityFeedChannels",
+    }
+
+
+def make_channel_message(record, text):
+    now = int(time.time() * 1000000)
+    body = json.dumps(
+        {"text": text, "profileVersion": 0}, ensure_ascii=False
+    ).encode("utf-8")
+    return {
+        "i": {"t": "text", "i": b64e(os.urandom(32))},
+        "t": now,
+        "s": record.get("account_id", ""),
+        "b": b64e(body),
+        "f": local_channel_eo(),
+        "d": False,
+        "rn": now,
     }
 
 
@@ -484,6 +558,112 @@ async def handler(ws, *args):
                     liked,
                     post_state["count"],
                 )
+            elif isinstance(q.get("m"), dict) and "o" in q["m"]:
+                op = q["m"]["o"] or {}
+                message_id = op.get("i") or {}
+                message_type = (
+                    message_id.get("t")
+                    if isinstance(message_id, dict)
+                    else None
+                )
+                raw_body = op.get("b")
+                if message_type == "text" and raw_body:
+                    record = find_account(
+                        client_pub=state.get("client_pub")
+                    )
+                    if record is None:
+                        record = get_or_create_record(
+                            state.get("client_pub", ""),
+                            state.get("api", ""),
+                            None,
+                        )
+                    channel_state = get_channel_state()
+                    encoded_id = message_id.get("i")
+                    is_duplicate = any(
+                        item.get("i", {}).get("i") == encoded_id
+                        for item in channel_state["messages"]
+                    )
+                    if not is_duplicate:
+                        now = int(time.time() * 1000000)
+                        channel_state["messages"].append(
+                            {
+                                "i": message_id,
+                                "t": now,
+                                "s": record.get("account_id", ""),
+                                "b": raw_body,
+                                "f": op.get("f") or local_channel_eo(),
+                                "d": False,
+                                "rn": now,
+                            }
+                        )
+                        save_state()
+                    text = ""
+                    try:
+                        text = json.loads(b64d(raw_body)).get("text", "")
+                    except Exception:
+                        pass
+                    LOG.info(
+                        "CHANNEL_SEND path=%s type=%s text=%r count=%d",
+                        path,
+                        message_type,
+                        text,
+                        len(channel_state["messages"]),
+                    )
+                else:
+                    LOG.info(
+                        "CHANNEL_ACTIVITY path=%s type=%s",
+                        path,
+                        message_type,
+                    )
+                response["="] = {"v": True}
+            elif isinstance(q.get("m"), dict) and "gmfc" in q["m"]:
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                channel_state = get_channel_state()
+                if not channel_state["messages"]:
+                    channel_state["messages"].append(
+                        make_channel_message(
+                            record,
+                            "Bem-vindo ao canal geral da Comunidade Local!",
+                        )
+                    )
+                    save_state()
+                response["m"] = {
+                    "wd": {
+                        "c": channel_state["messages"],
+                        "p": False,
+                        "s": {
+                            record.get("account_id", ""): comment_author(record)
+                        },
+                        "fd": local_channel_feed(),
+                    }
+                }
+                LOG.info(
+                    "CHANNEL_MESSAGES path=%s channel=%s count=%d",
+                    path,
+                    LOCAL_CHANNEL_ID,
+                    len(channel_state["messages"]),
+                )
+            elif isinstance(q.get("i"), dict) and "f" in q["i"]:
+                feed_req = q["i"].get("f")
+                item_type = (
+                    feed_req.get("ibt") if isinstance(feed_req, dict) else None
+                )
+                if item_type == "CommunityFeedChannels":
+                    response["i"] = {"f": {"f": [local_channel_feed()]}}
+                    LOG.info("CHANNELS path=%s count=1", path)
+                else:
+                    response["i"] = {"f": {"f": []}}
+                    LOG.info(
+                        "FEED_DETAILS path=%s ibt=%s count=0",
+                        path,
+                        item_type,
+                    )
             elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
                 record = find_account(client_pub=state.get("client_pub"))
                 if record is None:
