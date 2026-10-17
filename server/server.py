@@ -368,6 +368,67 @@ def make_channel_message(record, text):
     }
 
 
+def local_community_ee():
+    now = int(time.time() * 1000)
+    return {
+        "cci": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
+        "c": 1,
+        "p": 1,
+        "l": 0,
+        "im": False,
+        "m": {
+            "dn": "Comunidade Local",
+            "ci": AVATAR_HTTP_URL,
+            "b": COVER_HTTP_URL,
+        },
+        "t": now,
+    }
+
+
+def make_feed_post(record, post_state):
+    now = int(time.time() * 1000)
+    return {
+        "i": LOCAL_POST_ID,
+        "a": profile_about(record),
+        "P": {
+            "m": {
+                "u": "Hello from the local Omlet server!",
+                "t": "Hello from the local Omlet server!",
+                "d": "Posted via the local server",
+                "P": "https://omlet.gg",
+                "Q": "Hello from the local Omlet server!",
+                "U": "Local server test post",
+                "oi": {
+                    "p": record.get("omlet_id", "omletplayer"),
+                    "t": "omlet",
+                },
+                "un": record.get("omlet_id", "omletplayer"),
+                "id": {
+                    "a": record.get("account_id", ""),
+                    "t": "Message",
+                    "id": b64e(record.get("account_id", "").encode("utf-8")),
+                },
+                "usr": {
+                    "a": record.get("account_id", ""),
+                    "n": record.get("omlet_id", "omletplayer"),
+                    "p": AVATAR_BLOB_URL,
+                    "vfs": [],
+                },
+                "gn": [],
+                "gi": [],
+                "g": [],
+                "ct": now,
+                "cc": len(post_state["comments"]),
+                "l": post_state["count"],
+                "yl": post_state["liked"],
+                "vd": False,
+            }
+        },
+        "ls": {"t": str(now)},
+        "ofc": 0,
+    }
+
+
 async def handler(ws, *args):
     try:
         path = ws.request.path
@@ -664,6 +725,25 @@ async def handler(ws, *args):
                         path,
                         item_type,
                     )
+            elif isinstance(q.get("w"), dict) and "gcfr" in q["w"]:
+                record = find_account(client_pub=state.get("client_pub"))
+                if record is None:
+                    record = get_or_create_record(
+                        state.get("client_pub", ""),
+                        state.get("api", ""),
+                        None,
+                    )
+                post_state = get_post_state()
+                post = make_feed_post(record, post_state)
+                header = {
+                    "i": "my-communities",
+                    "c": [local_community_ee()],
+                }
+                response["w"] = {"ghp": {"p": [header, post]}}
+                LOG.info("COMMUNITY_FEED path=%s count=2", path)
+            elif isinstance(q.get("w"), dict) and "licu" in q["w"]:
+                response["w"] = {"gcm": {"c": [], "p": 0}}
+                LOG.info("COMMUNITIES path=%s count=0", path)
             elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
                 record = find_account(client_pub=state.get("client_pub"))
                 if record is None:
@@ -672,50 +752,8 @@ async def handler(ws, *args):
                         state.get("api", ""),
                         None,
                     )
-                now = int(time.time() * 1000)
                 post_state = get_post_state()
-                post = {
-                    "i": LOCAL_POST_ID,
-                    "a": profile_about(record),
-                    "P": {
-                        "m": {
-                            "u": "Hello from the local Omlet server!",
-                            "t": "Hello from the local Omlet server!",
-                            "d": "Posted via the local server",
-                            "P": "https://omlet.gg",
-                            "Q": "Hello from the local Omlet server!",
-                            "U": "Local server test post",
-                            "oi": {
-                                "p": record.get("omlet_id", "omletplayer"),
-                                "t": "omlet",
-                            },
-                            "un": record.get("omlet_id", "omletplayer"),
-                            "id": {
-                                "a": record.get("account_id", ""),
-                                "t": "Message",
-                                "id": b64e(
-                                    record.get("account_id", "").encode("utf-8")
-                                ),
-                            },
-                            "usr": {
-                                "a": record.get("account_id", ""),
-                                "n": record.get("omlet_id", "omletplayer"),
-                                "p": AVATAR_BLOB_URL,
-                                "vfs": [],
-                            },
-                            "gn": [],
-                            "gi": [],
-                            "g": [],
-                            "ct": now,
-                            "cc": len(post_state["comments"]),
-                            "l": post_state["count"],
-                            "yl": post_state["liked"],
-                            "vd": False,
-                        }
-                    },
-                    "ls": {"t": str(now)},
-                    "ofc": 0,
-                }
+                post = make_feed_post(record, post_state)
                 response["w"] = {"ghp": {"p": [post]}}
                 LOG.info("FEED path=%s post=%s", path, post["i"])
             elif isinstance(q.get("p"), dict) and "gui" in q["p"]:

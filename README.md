@@ -13,8 +13,9 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
 > recarregamentos e reinícios do servidor; comentários podem ser listados e
 > adicionados, e também persistem em disco (`server/state.json`). A aba **Canais**
 > lista a Comunidade Local com o canal de texto “geral”; as mensagens são
-> carregadas, enviadas e persistidas. DMs, live e mídia do feed ainda **não**
-> estão implementados.
+> carregadas, enviadas e persistidas. A aba **Communities** (menu lateral) também
+> abre, mostrando a Comunidade Local e o feed local. DMs, live e mídia do feed
+> ainda **não** estão implementados.
 
 > **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
 > Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
@@ -62,6 +63,9 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
   `ibt=CommunityFeedChannels` e recebe um `ho` da Comunidade Local/canal “geral”;
   abrir o canal consulta `m.gmfc` (`m.wd`/`lm0`) e enviar texto usa `m.o`, com as
   mensagens persistidas em `server/state.json`.
+- Aba Communities: `w.licu` (`mi0`) → `w.gcm` (`nt`) e o feed `w.gcfr` (`ot`) →
+  `w.ghp` (`sx`); o header `my-communities` (`td0`) mostra a Comunidade Local e o
+  post local.
 - APK corrigido aponta todos os endpoints embutidos para um servidor HTTP/WS local.
 
 Ainda não implementado:
@@ -389,6 +393,9 @@ Responda com o timestamp do servidor:
   (`{"text": "...", "profileVersion": 0}`), `f` = `eo` e `d` = deleted.
 - Enviar texto (e reações): `m.o` (`p0`) com `b`, `f`, `i`, `v`, `w`; resposta
   `pz0` (`=`). O servidor grava textos em `state.json` e confirma reações.
+- Aba Communities: `w.licu` (`mi0`) → `w.gcm` (`nt`, lista de `ae`); `w.gcfr`
+  (`ot`) → `w.ghp` (`sx`) com `p` de `td0`. O header “Minhas Comunidades” é um
+  `td0` com `i: "my-communities"` e `c` = lista de `ee`.
 
 ### Depuração
 
@@ -410,10 +417,10 @@ server/venv/bin/python server/stub.py
   texto; curtidas e comentários persistem em disco, mas mídia do feed, múltiplos
   posts, paginação, threading/respostas e outras interações não estão
   implementados.
-- **Comunidades/canais**: existe apenas uma comunidade/canal local fixo;
-  descoberta, criação, entrada/saída, múltiplos canais, cargos, anexos, reações
-  e DMs/voz não estão implementados. Alguns requests auxiliares (`m.l`, `i.sfl`,
-  `ps.gvs`) ainda não têm resposta.
+- **Comunidades/canais**: a aba Communities mostra apenas uma comunidade local
+  fixa; Join/Create, descoberta, entrada/saída, múltiplos canais, cargos, anexos,
+  reações e DMs/voz não estão implementados. Alguns requests auxiliares (`m.l`,
+  `i.sfl`, `ps.gvs`) ainda não têm resposta.
 - **Live/streaming** não está implementado; o app original dependia de
   RTMP/SRT/WebRTC externos e plataformas de terceiros.
 - **Blobs / push / billing / NFT / analytics** não estão implementados.
