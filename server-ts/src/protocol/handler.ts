@@ -313,6 +313,19 @@ export class LongdanHandler {
       } else if (q.p && typeof q.p === 'object' && 'gu' in q.p) {
         response.p = { gu: { a: {}, b: {} } };
         this.log('GET_UNLOCKS', { path });
+      } else if (q.p && typeof q.p === 'object' && 'cpf' in q.p) {
+        const cpf = (q.p.cpf ?? {}) as { pf?: string[] };
+        const features = Array.isArray(cpf.pf) ? cpf.pf : [];
+        const pf: Record<string, boolean> = {};
+        for (const feature of features) pf[feature] = true;
+        response.p = { cpf: { pf, r: true } };
+        this.log('CHECK_PREMIUM', { path, count: features.length });
+      } else if (q.p && typeof q.p === 'object' && 'gx' in q.p) {
+        response.p = { gx: {} };
+        this.log('USER_COUNTS', { path });
+      } else if (q.p && typeof q.p === 'object' && 'gmg' in q.p) {
+        response.p = { gmg: { mp: [] } };
+        this.log('MISSION_GROUPS', { path });
       } else if (q.p && typeof q.p === 'object' && 'gpa' in q.p) {
         const gpa = (q.p.gpa ?? {}) as Json;
         const accountId =
