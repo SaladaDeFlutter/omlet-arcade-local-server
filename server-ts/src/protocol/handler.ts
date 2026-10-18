@@ -310,6 +310,9 @@ export class LongdanHandler {
           this.log('RESET_PROFILE_DECORATION', { path });
         }
         response['='] = { v: true };
+      } else if (q.p && typeof q.p === 'object' && 'gu' in q.p) {
+        response.p = { gu: { a: {}, b: {} } };
+        this.log('GET_UNLOCKS', { path });
       } else if (q.p && typeof q.p === 'object' && 'gpa' in q.p) {
         const gpa = (q.p.gpa ?? {}) as Json;
         const accountId =
@@ -730,6 +733,9 @@ export class LongdanHandler {
           this.log('UNKNOWN', { path, payload: q });
           response['!'] = 'NotImplemented';
         }
+      } else if (q.ps && typeof q.ps === 'object' && 'o' in q.ps) {
+        response['='] = { v: true };
+        this.log('SET_PRESENCE', { path });
       } else if (q.ca && typeof q.ca === 'object' && 'g' in q.ca) {
         response.ca = {
           g: { d: [], l: [], m: [], u: [], w: [] },
