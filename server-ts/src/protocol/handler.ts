@@ -29,6 +29,7 @@ import {
   sessionZ,
 } from './builders';
 import { EnvelopeSchema } from './schemas';
+import { accountAvatarLink } from './placeholder';
 import {
   b64d,
   b64e,
@@ -122,36 +123,6 @@ function decodeChannelText(value: unknown): string {
     // Legacy/plain text payload.
   }
   return raw;
-}
-
-function ensureLocalChannel(account: Account) {
-  let community = repositories.getCommunity(CONFIG.localCommunityId);
-  if (!community) {
-    community = repositories.insertCommunity(
-      CONFIG.localCommunityId,
-      'Comunidade Local',
-      'Comunidade local de testes',
-      CONFIG.avatarBlobUrl,
-      CONFIG.coverBlobUrl,
-      account.accountId,
-    );
-    repositories.addMember(
-      community.communityId,
-      account.accountId,
-      'owner',
-    );
-  }
-  let channel = repositories.getChannel(CONFIG.localChannelId);
-  if (!channel) {
-    channel = repositories.insertChannel(
-      CONFIG.localChannelId,
-      community.communityId,
-      'geral',
-      'Canal de texto da comunidade',
-      CONFIG.localChannelKey,
-    );
-  }
-  return { community, channel };
 }
 
 function authorMap(
@@ -338,6 +309,13 @@ export class LongdanHandler {
           this.log('RESET_PROFILE_DECORATION', { path });
         }
         response['='] = { v: true };
+      } else if (q.p && typeof q.p === 'object' && 'sp' in q.p) {
+        const req = (q.p.sp ?? {}) as Json;
+        const record = currentAccount(state);
+        const link = typeof req.p === 'string' ? req.p : '';
+        repositories.updateAvatarUrl(record.accountId, link);
+        response['='] = { v: true };
+        this.log('SET_PROFILE_AVATAR', { path, link });
       } else if (q.p && typeof q.p === 'object' && 'gu' in q.p) {
         response.p = { gu: { a: {}, b: {} } };
         this.log('GET_UNLOCKS', { path });
@@ -458,11 +436,7 @@ export class LongdanHandler {
         this.log('LIKE', { path, post: postId, liked, count });
       } else if (q.w && typeof q.w === 'object' && 'ghp' in q.w) {
         const record = currentAccount(state);
-        const items = repositories.listPosts();
-        const posts =
-          items.length > 0
-            ? items
-            : [repositories.ensureSeedPost(record)];
+        const posts = repositories.listPosts();
         response.w = {
           ghp: {
             p: posts.map((item) => feedPost(item, record.accountId)),
@@ -540,7 +514,6 @@ export class LongdanHandler {
         let communities = repositories.listCommunities(record.accountId);
         if (communities.length === 0) communities = repositories.listCommunities();
         let items = repositories.listPosts();
-        if (items.length === 0) items = [repositories.ensureSeedPost(record)];
         const header = {
           i: 'my-communities',
           c: communities.map((community) =>
@@ -562,8 +535,7 @@ export class LongdanHandler {
         });
       } else if (q.w && typeof q.w === 'object' && anyKey(q.w, ['grp', 'gtp', 'grgw'])) {
         const record = currentAccount(state);
-        let items = repositories.listPosts();
-        if (items.length === 0) items = [repositories.ensureSeedPost(record)];
+        const items = repositories.listPosts();
         response.w = {
           w: {
             w: {
@@ -616,14 +588,8 @@ export class LongdanHandler {
           typeof req.d === 'string' && req.d.trim()
             ? req.d.trim().slice(0, 1500)
             : 'Comunidade local de testes';
-        const icon =
-          typeof req.i === 'string' && req.i
-            ? req.i
-            : CONFIG.avatarBlobUrl;
-        const cover =
-          typeof req.b === 'string' && req.b
-            ? req.b
-            : CONFIG.coverBlobUrl;
+        const icon = typeof req.i === 'string' && req.i ? req.i : '';
+        const cover = typeof req.b === 'string' && req.b ? req.b : '';
         const community = repositories.createCommunity(
           name,
           description,
@@ -679,7 +645,7 @@ export class LongdanHandler {
             f: members.map((member) => ({
               a: member.account.accountId,
               n: member.account.omletId,
-              p: CONFIG.avatarBlobUrl,
+              p: accountAvatarLink(member.account),
               vfs: [],
               fs: member.role === 'owner' || member.role === 'admin',
             })),
@@ -726,44 +692,32 @@ export class LongdanHandler {
         response.co = { lcos: { l: [] } };
         this.log('COMMUNITY_OBJECTS', { path, payload: q.co.lcos });
       } else if (q.m && typeof q.m === 'object' && 'gmfc' in q.m) {
-        const record = currentAccount(state);
         const req = (q.m.gmfc ?? {}) as Json;
-        let channel = repositories.getChannel(
-          channelIdFromRequest(req.f),
-        );
-        if (!channel) {
-          const local = ensureLocalChannel(record);
-          channel = local.channel;
+        const channel = repositories.getChannel(channelIdFromRequest(req.f));
+        const community = channel
+          ? repositories.getCommunity(channel.communityId)
+          : undefined;
+        if (!channel || !community) {
+          response.m = { wd: { c: [], p: false, s: {} } };
+          this.log('CHANNEL_MESSAGES', { path, channel: null, count: 0 });
+        } else {
+          const messages = repositories.listMessages(channel.channelId);
+          response.m = {
+            wd: {
+              c: messages.map((message) =>
+                channelMessagePayload(message, channel),
+              ),
+              p: false,
+              s: authorMap(messages),
+              fd: channelFeed(channel, community),
+            },
+          };
+          this.log('CHANNEL_MESSAGES', {
+            path,
+            channel: channel.channelId,
+            count: messages.length,
+          });
         }
-        let community = repositories.getCommunity(channel.communityId);
-        if (!community) {
-          const local = ensureLocalChannel(record);
-          community = local.community;
-        }
-        let messages = repositories.listMessages(channel.channelId);
-        if (messages.length === 0) {
-          repositories.addMessage(
-            channel.channelId,
-            record.accountId,
-            'Bem-vindo ao canal geral da Comunidade Local!',
-          );
-          messages = repositories.listMessages(channel.channelId);
-        }
-        response.m = {
-          wd: {
-            c: messages.map((message) =>
-              channelMessagePayload(message, channel!),
-            ),
-            p: false,
-            s: authorMap(messages),
-            fd: channelFeed(channel, community),
-          },
-        };
-        this.log('CHANNEL_MESSAGES', {
-          path,
-          channel: channel.channelId,
-          count: messages.length,
-        });
       } else if (q.m && typeof q.m === 'object' && 'o' in q.m) {
         const op = (q.m.o ?? {}) as Json;
         const messageId = (op.i ?? {}) as Json;

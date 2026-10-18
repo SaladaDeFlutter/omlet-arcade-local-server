@@ -22,6 +22,14 @@ export function linkFromHashB64(hashB64: string): string {
   return `longdan://avatar/${urlSafeFromB64(hashB64)}`;
 }
 
+export function coverLinkFromHashB64(hashB64: string): string {
+  return `longdan://cover/${urlSafeFromB64(hashB64)}`;
+}
+
+export function coverLinkForHex(hex: string): string {
+  return coverLinkFromHashB64(Buffer.from(hex, 'hex').toString('base64'));
+}
+
 export function linkForHex(hex: string): string {
   return linkFromHashB64(Buffer.from(hex, 'hex').toString('base64'));
 }

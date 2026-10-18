@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
-import { CONFIG } from '../config';
 import { db } from './client';
 import {
   accounts,
@@ -337,20 +336,6 @@ export class Repositories {
     return row;
   }
 
-  ensureSeedPost(account: Account): PostWithAuthor {
-    const existing = this.listPosts(1)[0];
-    if (existing) return existing;
-    this.ensurePost(
-      'local-post-1',
-      account.accountId,
-      CONFIG.seedTitle,
-      CONFIG.seedDescription,
-    );
-    const created = this.getPost('local-post-1');
-    if (!created) throw new Error('failed to seed post');
-    return created;
-  }
-
   countPostsByAuthor(accountId: string): number {
     return (
       db
@@ -465,8 +450,8 @@ export class Repositories {
         communityId,
         name,
         description,
-        icon: icon || CONFIG.avatarBlobUrl,
-        cover: cover || CONFIG.coverBlobUrl,
+        icon,
+        cover,
         ownerAccountId,
         createdMs: now(),
       })

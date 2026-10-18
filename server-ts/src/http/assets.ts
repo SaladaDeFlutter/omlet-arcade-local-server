@@ -103,12 +103,20 @@ export function startAssetServer(): http.Server {
       serveBlobOrFallback(response, segments[1], CONFIG.avatarPath);
       return;
     }
+    if (segments.length === 2 && segments[0] === 'cover') {
+      serveBlobOrFallback(response, segments[1], CONFIG.coverPath);
+      return;
+    }
 
+    if (pathName.startsWith('/avatar')) {
+      sendFile(response, CONFIG.avatarPath);
+      return;
+    }
     if (pathName.startsWith('/cover')) {
       sendFile(response, CONFIG.coverPath);
       return;
     }
-    if (pathName.startsWith('/avatar') || pathName.startsWith('/blob/')) {
+    if (pathName.startsWith('/blob/')) {
       sendFile(response, CONFIG.avatarPath);
       return;
     }

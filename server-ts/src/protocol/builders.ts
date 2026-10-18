@@ -8,6 +8,13 @@ import type {
 import type { ChannelRow, CommunityRow } from '../db/schema';
 import { repositories } from '../db/repositories';
 import { b64d, b64e } from './crypto';
+import {
+  accountAvatarHttp,
+  accountAvatarLink,
+  accountCoverLink,
+  communityAvatarLink,
+  communityCoverLink,
+} from './placeholder';
 
 export function sessionZ(account: Account): Record<string, unknown> {
   const z = structuredClone(account.z) as Record<string, any>;
@@ -24,9 +31,9 @@ export function profileAbout(account: Account): Record<string, unknown> {
     a: account.bio,
     al: account.createdMs,
     lm: stamp,
-    bg: account.backgroundUrl || CONFIG.coverBlobUrl,
+    bg: accountCoverLink(account),
     fc: {
-      m: { ci: account.avatarUrl || CONFIG.avatarBlobUrl, dn: omletId },
+      m: { ci: accountAvatarLink(account), dn: omletId },
       cci: { p: omletId, cid: omletId, ct: 'App' },
       uci: [],
       c: 0,
@@ -57,10 +64,10 @@ export function profileDetail(account: Account): Record<string, unknown> {
     pu: account.omletId,
     i: [{ p: account.omletId, t: 'omlet' }],
     n: account.omletId,
-    p: account.avatarUrl || CONFIG.avatarBlobUrl,
-    au: CONFIG.avatarHttpUrl,
+    p: accountAvatarLink(account),
+    au: accountAvatarHttp(account),
     pd: decoration,
-    agu: account.backgroundUrl || CONFIG.coverBlobUrl,
+    agu: accountCoverLink(account),
     R: account.createdMs,
     l: 0,
   };
@@ -70,7 +77,7 @@ export function commentAuthor(account: Account): Record<string, unknown> {
   return {
     a: account.accountId,
     n: account.omletId,
-    p: account.avatarUrl || CONFIG.avatarBlobUrl,
+    p: accountAvatarLink(account),
     vfs: [],
   };
 }
@@ -92,7 +99,7 @@ export function communityInfo(
   return {
     cid: { ct: 'Managed', cid: community.communityId, p: 'Android' },
     n: community.name,
-    i: community.icon || CONFIG.avatarBlobUrl,
+    i: communityAvatarLink(community),
     ll: [],
     sq: false,
   };
@@ -113,6 +120,7 @@ export function communityEe(
     admins.push(community.ownerAccountId);
   }
   if (admins.length === 0 && accountId) admins.push(accountId);
+  const icon = communityAvatarLink(community);
   return {
     cci: {
       ct: 'Managed',
@@ -120,7 +128,7 @@ export function communityEe(
       p: 'Android',
     },
     a: {
-      ci: community.icon || CONFIG.avatarBlobUrl,
+      ci: icon,
       dn: community.name,
     },
     c: members.length,
@@ -129,8 +137,8 @@ export function communityEe(
     im: false,
     m: {
       dn: community.name,
-      ci: community.icon || CONFIG.avatarBlobUrl,
-      b: community.cover || CONFIG.coverBlobUrl,
+      ci: icon,
+      b: communityCoverLink(community),
       d: community.description ?? '',
       al: admins,
     },
@@ -203,7 +211,7 @@ export function feedPost(
         usr: {
           a: author.accountId,
           n: author.omletId,
-          p: CONFIG.avatarBlobUrl,
+          p: accountAvatarLink(author),
           vfs: [],
         },
         gn: [],

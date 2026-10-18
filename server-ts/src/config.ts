@@ -64,7 +64,5 @@ export const CONFIG = (() => {
     localCommunityId: 'local-community',
     localChannelId: 'local-community-general',
     localChannelKey: Buffer.from('omlet-local-channel').toString('base64'),
-    seedTitle: 'Hello from the local Omlet server!',
-    seedDescription: 'Posted via the local server',
   };
 })();
