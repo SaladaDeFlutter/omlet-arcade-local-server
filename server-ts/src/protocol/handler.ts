@@ -783,6 +783,9 @@ export class LongdanHandler {
       } else if (q.i && typeof q.i === 'object' && 'ltfs' in q.i) {
         response.i = { ltfs: { lt: [] } };
         this.log('TOURNAMENT_FEED', { path });
+      } else if (q.i && typeof q.i === 'object' && 'a' in q.i) {
+        response['='] = { v: true };
+        this.log('PUSH_REGISTER', { path });
       } else if (q.ca && typeof q.ca === 'object' && 'gnw' in q.ca) {
         response.ca = {
           gnw: { wa: '', bnc: '', hpg: false },
