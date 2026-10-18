@@ -48,3 +48,9 @@ __pycache__/
 Thumbs.db
 *.swp
 *~
+
+# Node / TypeScript server
+server-ts/node_modules/
+server-ts/dist/
+server-ts/coverage/
+server-ts/.env

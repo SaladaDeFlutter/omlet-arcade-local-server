@@ -15,7 +15,9 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
 > membros, canais e mensagens são persistidos em **SQLite** (`server/omlet.db`,
 > WAL). A aba **Canais** lista os canais de texto das comunidades; a aba
 > **Communities** lista/browse as comunidades e o feed local. DMs, live e mídia
-> do feed ainda **não** estão implementados.
+> do feed ainda **não** estão implementados. Há também um servidor equivalente
+> em **TypeScript** (`server-ts`, Fastify + Drizzle/SQLite) com paridade para os
+> fluxos atuais; o Python permanece como implementação de referência.
 
 > **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
 > Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
@@ -206,6 +208,14 @@ endpoint do cluster.
 │   ├── stub.py             # logger WebSocket bruto (depuração de protocolo)
 │   ├── generate_keys.py    # cria server/keys.json
 │   └── requirements.txt
+├── server-ts/
+│   ├── src/                 # servidor TypeScript (Fastify + Drizzle)
+│   │   ├── db/              # schema, cliente SQLite e repositórios
+│   │   ├── protocol/        # crypto, builders e handler Longdan
+│   │   └── http/            # assets (avatar/cover)
+│   ├── test/                # testes Vitest
+│   ├── package.json
+│   └── tsconfig.json
 └── scripts/
     └── patch-apk.sh         # decodifica/corrige/reconstrói/assina o APK do cliente
 ```
@@ -238,7 +248,8 @@ privada e o keystore de assinatura **não** são versionados intencionalmente.
 Testado em Arch Linux + Waydroid (LineageOS 20, x86_64). Você precisa de:
 
 - Linux com Waydroid (ou um dispositivo Android físico com ADB).
-- Python 3.11+.
+- Python 3.11+ (servidor de referência).
+- Node.js 22+ e npm (servidor TypeScript em `server-ts`, opcional).
 - `apktool`, `zipalign`, `apksigner`, `keytool` (Java).
   - No Arch, `apktool` está disponível no AUR; as build-tools fornecem
     `zipalign`/`apksigner` (ex.: `/opt/android-sdk/build-tools/33.0.2`).
@@ -355,6 +366,59 @@ Crie uma conta de convidado:
 5. pule o onboarding opcional de gênero/aniversário.
 
 Você deve chegar à tela Início.
+
+---
+
+## Servidor TypeScript (`server-ts`)
+
+Implementação paralela do servidor em **Node.js + TypeScript**, mantendo o mesmo
+protocolo e o mesmo banco SQLite:
+
+- **Fastify** + `@fastify/websocket` para `/device` e `/readonlydevice`;
+- **Zod** disponível para contratos de request/response;
+- **Drizzle ORM** + `better-sqlite3` sobre `server/omlet.db` (mesmo schema);
+- **Vitest** para testes;
+- HTTP de assets em `0.0.0.0:8081` (avatar/cover), como no Python;
+- sem Next.js: o protocolo é WebSocket bruto e não se encaixa em route handlers
+  serverless.
+
+Estrutura principal:
+
+```text
+server-ts/src/
+├── config.ts                # env, chaves, URLs e caminhos
+├── db/
+│   ├── schema.ts            # tabelas Drizzle
+│   ├── schema-sql.ts        # bootstrap idempotente do SQLite
+│   ├── client.ts            # conexão, WAL, foreign_keys e seeds
+│   └── repositories.ts      # accounts/posts/comments/communities/channels
+├── protocol/
+│   ├── crypto.ts            # X25519, SHA-256, base64 e gzip
+│   ├── builders.ts          # serialização Longdan
+│   └── handler.ts           # dispatch dos métodos do protocolo
+├── http/assets.ts           # avatar/cover
+└── main.ts                  # bootstrap Fastify + WS
+```
+
+Rodando (pare o servidor Python antes, pois usam a mesma porta e o mesmo banco):
+
+```bash
+cd server-ts
+npm install
+npm run typecheck
+npm test
+npm start
+```
+
+Variáveis úteis: `OMLET_PORT` (8080), `OMLET_ASSET_PORT` (8081),
+`OMLET_DB_PATH` (padrão `../server/omlet.db`), `OMLET_SERVER_DIR`,
+`OMLET_KEYS_PATH`, `OMLET_AVATAR_PATH`, `OMLET_COVER_PATH` e `PUBLIC_HOST`.
+
+Cobertura atual: handshake, auth/sessão, perfil, feed, curtidas por conta,
+comentários, comunidades/membros, canais/mensagens, onboarding, tickets de blob
+e upload shortcut. O schema é criado de forma idempotente; `drizzle.config.ts`
+está pronto para gerar migrações e um adapter PostgreSQL pode substituir o
+repositório SQLite sem alterar o protocolo.
 
 ---
 
