@@ -735,6 +735,12 @@ export class LongdanHandler {
           g: { d: [], l: [], m: [], u: [], w: [] },
         };
         this.log('TOP_SUPPORTERS', { path });
+      } else if (q.ca && typeof q.ca === 'object' && 'gbp' in q.ca) {
+        response.ca = { gbp: { ps: [] } };
+        this.log('CRYPTO_PROVIDERS', { path });
+      } else if (q.ca && typeof q.ca === 'object' && 'gsbt' in q.ca) {
+        response.ca = { gsbt: { ts: [], cs: [] } };
+        this.log('CRYPTO_TOKENS', { path });
       } else if (q.b && typeof q.b === 'object' && 'ut' in q.b) {
         const ut = (q.b.ut ?? {}) as Json;
         const meta = (ut.m ?? {}) as Json;
