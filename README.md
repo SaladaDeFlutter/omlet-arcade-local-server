@@ -366,6 +366,32 @@ Você deve chegar à tela Início.
 
 ---
 
+## Testar em um celular Android físico (LAN)
+
+O servidor escuta em `0.0.0.0` (WebSocket `8080`, assets `8081`). Para usar num
+Android na mesma rede Wi‑Fi:
+
+1. Descubra o IP da máquina na LAN (ex.: `192.168.15.8`).
+2. Gere um APK apontando para esse IP:
+   ```bash
+   scripts/patch-apk.sh omlet-arcade-1-111-9.apk 192.168.15.8:8080
+   ```
+   (ou baixe o APK pronto da release `v1.111.9-lan-<ip>` no GitHub).
+3. Suba o servidor com o mesmo host em `PUBLIC_HOST`, para que avatar/capa/blobs
+   resolvam a partir do celular:
+   ```bash
+   scripts/run-lan.sh 192.168.15.8   # ou sem argumento para detectar o IP
+   ```
+4. Com o celular na mesma rede, desinstale o app original e instale o patchado:
+   ```bash
+   adb install -r -d patched/omlet-patched-signed.apk
+   ```
+
+Libere as portas `8080` e `8081` no firewall. Se o IP mudar (DHCP), repatche o
+APK e reinicie o servidor com o novo `PUBLIC_HOST`.
+
+---
+
 ## Servidor TypeScript (`server-ts`)
 
 Implementação paralela do servidor em **Node.js + TypeScript**, mantendo o mesmo
