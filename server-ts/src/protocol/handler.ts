@@ -786,6 +786,9 @@ export class LongdanHandler {
       } else if (q.i && typeof q.i === 'object' && 'a' in q.i) {
         response['='] = { v: true };
         this.log('PUSH_REGISTER', { path });
+      } else if (q.ff && typeof q.ff === 'object' && 'lg' in q.ff) {
+        response.ff = { lg: { g: [] } };
+        this.log('ABOUT_COMMUNITIES', { path });
       } else if (q.ca && typeof q.ca === 'object' && 'gnw' in q.ca) {
         response.ca = {
           gnw: { wa: '', bnc: '', hpg: false },
