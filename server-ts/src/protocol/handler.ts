@@ -736,6 +736,16 @@ export class LongdanHandler {
       } else if (q.ps && typeof q.ps === 'object' && 'o' in q.ps) {
         response['='] = { v: true };
         this.log('SET_PRESENCE', { path });
+      } else if (q.ca && typeof q.ca === 'object' && 'gnw' in q.ca) {
+        response.ca = {
+          gnw: { wa: '', bnc: '', hpg: false },
+        };
+        this.log('WALLET_ADDRESS', { path });
+      } else if (q.ca && typeof q.ca === 'object' && 'lett' in q.ca) {
+        response.ca = {
+          lett: { ts: [] },
+        };
+        this.log('WALLET_TX', { path });
       } else if (q.ca && typeof q.ca === 'object' && 'g' in q.ca) {
         response.ca = {
           g: { d: [], l: [], m: [], u: [], w: [] },
