@@ -263,6 +263,20 @@ export class LongdanHandler {
           omlet_id: omletId,
           scopes,
         });
+      } else if (q.p && typeof q.p === 'object' && 'spat' in q.p) {
+        const req = (q.p.spat ?? {}) as Json;
+        const record = currentAccount(state);
+        const bio = typeof req.u === 'string' ? req.u.slice(0, 1500) : '';
+        repositories.updateBio(record.accountId, bio);
+        response['='] = { v: true };
+        this.log('SET_PROFILE_ABOUT', { path, bio });
+      } else if (q.p && typeof q.p === 'object' && 'spbg' in q.p) {
+        const req = (q.p.spbg ?? {}) as Json;
+        const record = currentAccount(state);
+        const link = typeof req.p === 'string' ? req.p : '';
+        repositories.updateBackgroundUrl(record.accountId, link);
+        response['='] = { v: true };
+        this.log('SET_PROFILE_BACKGROUND', { path, link });
       } else if (q.p && typeof q.p === 'object' && 'gpa' in q.p) {
         const gpa = (q.p.gpa ?? {}) as Json;
         const accountId =
@@ -363,6 +377,57 @@ export class LongdanHandler {
           },
         };
         this.log('FEED', { path, posts: posts.length });
+      } else if (q.w && typeof q.w === 'object' && 'guw' in q.w) {
+        const req = (q.w.guw ?? {}) as Json;
+        const viewer = currentAccount(state);
+        const authorId =
+          typeof req.a === 'string' ? req.a : viewer.accountId;
+        const author = repositories.findAccount(authorId) ?? viewer;
+        const posts = repositories
+          .listPosts(100)
+          .filter((item) => item.post.authorAccountId === author.accountId);
+        response.w = {
+          w: {
+            w: {
+              p: posts.map((item) => feedPost(item, viewer.accountId).P),
+            },
+          },
+        };
+        this.log('USER_WALL', { path, author: authorId, count: posts.length });
+      } else if (q.w && typeof q.w === 'object' && 'gg' in q.w) {
+        const req = (q.w.gg ?? {}) as Json;
+        const viewer = currentAccount(state);
+        const accountId =
+          typeof req.u === 'string' ? req.u : viewer.accountId;
+        let communities = repositories.listCommunities(accountId);
+        if (communities.length === 0) communities = repositories.listCommunities();
+        const items = communities.map((community) => ({
+          p: {
+            ct: 'Managed',
+            cid: community.communityId,
+            p: 'Android',
+          },
+          cic: communityEe(community, accountId),
+        }));
+        response.w = { gcm: { c: items, p: items.length } };
+        this.log('PROFILE_GAMES', { path, account: accountId, count: items.length });
+      } else if (q.w && typeof q.w === 'object' && 'ltr' in q.w) {
+        response.w = {
+          ltr: { mt: [], cic: [], gf: [], gfs: {}, tt: {} },
+        };
+        this.log('PROFILE_TOURNAMENTS', { path });
+      } else if (q.w && typeof q.w === 'object' && 'ci' in q.w) {
+        response.w = { ci: { i: false, r: false } };
+        this.log('PROFILE_COMMUNITY_INFO', { path, payload: q.w.ci });
+      } else if (q.st && typeof q.st === 'object' && 'gtf' in q.st) {
+        response.st = { gtf: { al: [], u: [] } };
+        this.log('PROFILE_TOP_FANS', { path });
+      } else if (q.st && typeof q.st === 'object' && 'grl' in q.st) {
+        response.st = { grl: { l: [] } };
+        this.log('PROFILE_REWARD_LEVEL', { path });
+      } else if (q.r && typeof q.r === 'object' && 'm' in q.r) {
+        response['='] = { v: true };
+        this.log('PROFILE_R_M', { path, payload: q.r.m });
       } else if (q.w && typeof q.w === 'object' && 'gcfr' in q.w) {
         const record = currentAccount(state);
         let communities = repositories.listCommunities(record.accountId);
@@ -623,6 +688,15 @@ export class LongdanHandler {
       } else if (q.p && typeof q.p === 'object' && 'gui' in q.p) {
         response.p = { gui: { ii: {} } };
         this.log('SHARDS', { path });
+      } else if (q.p && typeof q.p === 'object') {
+        const keys = Object.keys(q.p);
+        if (keys.some((key) => key.startsWith('s'))) {
+          response['='] = { v: true };
+          this.log('SET_PROFILE', { path, keys });
+        } else {
+          this.log('UNKNOWN', { path, payload: q });
+          response['!'] = 'NotImplemented';
+        }
       } else if (q.ca && typeof q.ca === 'object' && 'g' in q.ca) {
         response.ca = {
           g: { d: [], l: [], m: [], u: [], w: [] },

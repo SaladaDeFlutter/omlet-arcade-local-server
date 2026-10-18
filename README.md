@@ -487,6 +487,10 @@ LOG_LEVEL=debug npm start
 
 ## Limitações conhecidas / roadmap
 
+- **Perfil**: edição de bio e de imagem/fundo funciona (servidor aceita e
+  persiste); o avatar 3D não é tratado. A aba **Posts** do perfil é alimentada
+  pelo banco local do cliente, então pode continuar vazia mesmo com posts no
+  servidor.
 - **Mídia/conteúdo de perfil**: o avatar e a capa são assets locais de
   placeholder; posts/loja/coleções/momentos do perfil estão vazios.
 - **Feed Início**: um post de teste local é servido e o detalhe abre só com

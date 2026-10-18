@@ -24,9 +24,9 @@ export function profileAbout(account: Account): Record<string, unknown> {
     a: omletId,
     al: account.createdMs,
     lm: stamp,
-    bg: CONFIG.coverBlobUrl,
+    bg: account.backgroundUrl || CONFIG.coverBlobUrl,
     fc: {
-      m: { ci: CONFIG.avatarBlobUrl, dn: omletId },
+      m: { ci: account.avatarUrl || CONFIG.avatarBlobUrl, dn: omletId },
       cci: { p: omletId, cid: omletId, ct: 'App' },
       uci: [],
       c: 0,
@@ -49,7 +49,7 @@ export function profileDetail(account: Account): Record<string, unknown> {
     pu: account.omletId,
     i: [{ p: account.omletId, t: 'omlet' }],
     n: account.omletId,
-    p: CONFIG.avatarBlobUrl,
+    p: account.avatarUrl || CONFIG.avatarBlobUrl,
     au: CONFIG.avatarHttpUrl,
   };
 }
@@ -58,7 +58,7 @@ export function commentAuthor(account: Account): Record<string, unknown> {
   return {
     a: account.accountId,
     n: account.omletId,
-    p: CONFIG.avatarBlobUrl,
+    p: account.avatarUrl || CONFIG.avatarBlobUrl,
     vfs: [],
   };
 }

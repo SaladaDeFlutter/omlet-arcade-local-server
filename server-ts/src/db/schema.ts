@@ -11,6 +11,9 @@ export const accounts = sqliteTable(
     hasEmail: integer('has_email').notNull().default(1),
     hasPassword: integer('has_password').notNull().default(1),
     accountJson: text('account_json').notNull().default('{}'),
+    bio: text('bio').notNull().default(''),
+    avatarUrl: text('avatar_url').notNull().default(''),
+    backgroundUrl: text('background_url').notNull().default(''),
   },
   (table) => [index('accounts_created_idx').on(table.createdMs)],
 );

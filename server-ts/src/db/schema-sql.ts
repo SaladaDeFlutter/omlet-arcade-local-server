@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS accounts (
   created_ms INTEGER NOT NULL,
   has_email INTEGER NOT NULL DEFAULT 1,
   has_password INTEGER NOT NULL DEFAULT 1,
-  account_json TEXT NOT NULL DEFAULT '{}'
+  account_json TEXT NOT NULL DEFAULT '{}',
+  bio TEXT NOT NULL DEFAULT '',
+  avatar_url TEXT NOT NULL DEFAULT '',
+  background_url TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS posts (

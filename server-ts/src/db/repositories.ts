@@ -29,6 +29,9 @@ export interface Account {
   hasEmail: boolean;
   hasPassword: boolean;
   z: Record<string, unknown>;
+  bio: string;
+  avatarUrl: string;
+  backgroundUrl: string;
 }
 
 export interface AccountInput {
@@ -40,6 +43,9 @@ export interface AccountInput {
   hasEmail?: boolean;
   hasPassword?: boolean;
   z: Record<string, unknown>;
+  bio?: string;
+  avatarUrl?: string;
+  backgroundUrl?: string;
 }
 
 export interface PostWithAuthor {
@@ -98,6 +104,9 @@ function parseAccount(row: AccountRow): Account {
     hasEmail: Boolean(row.hasEmail),
     hasPassword: Boolean(row.hasPassword),
     z,
+    bio: row.bio ?? '',
+    avatarUrl: row.avatarUrl ?? '',
+    backgroundUrl: row.backgroundUrl ?? '',
   };
 }
 
@@ -133,6 +142,9 @@ export class Repositories {
       hasEmail: input.hasEmail === false ? 0 : 1,
       hasPassword: input.hasPassword === false ? 0 : 1,
       accountJson: JSON.stringify(input.z ?? {}),
+      bio: input.bio ?? '',
+      avatarUrl: input.avatarUrl ?? '',
+      backgroundUrl: input.backgroundUrl ?? '',
     };
     if (existing) {
       db.update(accounts)
@@ -173,7 +185,28 @@ export class Repositories {
         e: true,
         p: false,
       },
+      bio: '',
+      avatarUrl: '',
+      backgroundUrl: '',
     });
+  }
+
+  updateBio(accountId: string, bio: string): void {
+    db.update(accounts).set({ bio }).where(eq(accounts.accountId, accountId)).run();
+  }
+
+  updateAvatarUrl(accountId: string, avatarUrl: string): void {
+    db.update(accounts)
+      .set({ avatarUrl })
+      .where(eq(accounts.accountId, accountId))
+      .run();
+  }
+
+  updateBackgroundUrl(accountId: string, backgroundUrl: string): void {
+    db.update(accounts)
+      .set({ backgroundUrl })
+      .where(eq(accounts.accountId, accountId))
+      .run();
   }
 
   countAccounts(): number {

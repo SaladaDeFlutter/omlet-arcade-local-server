@@ -18,6 +18,19 @@ function now(): number {
 
 export function initializeDatabase(): void {
   sqlite.exec(SCHEMA_SQL);
+  const accountColumns = sqlite
+    .prepare('PRAGMA table_info(accounts)')
+    .all()
+    .map((column) => (column as { name: string }).name);
+  if (!accountColumns.includes('bio')) {
+    sqlite.exec("ALTER TABLE accounts ADD COLUMN bio TEXT NOT NULL DEFAULT ''");
+  }
+  if (!accountColumns.includes('avatar_url')) {
+    sqlite.exec("ALTER TABLE accounts ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''");
+  }
+  if (!accountColumns.includes('background_url')) {
+    sqlite.exec("ALTER TABLE accounts ADD COLUMN background_url TEXT NOT NULL DEFAULT ''");
+  }
   sqlite.pragma('user_version = 1');
 
   const firstAccount = db
