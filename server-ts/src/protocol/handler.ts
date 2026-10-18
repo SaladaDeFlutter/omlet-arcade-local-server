@@ -7,6 +7,13 @@ import {
   repositories,
 } from '../db/repositories';
 import {
+  downloadUrl,
+  hasBlob,
+  hexFromHashB64,
+  hexFromLink,
+  linkFromHashB64,
+} from '../http/blobs';
+import {
   channelFeed,
   channelIdFromRequest,
   channelIo,
@@ -729,20 +736,41 @@ export class LongdanHandler {
         };
         this.log('TOP_SUPPORTERS', { path });
       } else if (q.b && typeof q.b === 'object' && 'ut' in q.b) {
-        response.b = {
-          ut: { ut: { a: true, l: CONFIG.avatarBlobUrl } },
-        };
-        this.log('BLOB_UPLOAD', { path, category: 'b' });
+        const ut = (q.b.ut ?? {}) as Json;
+        const meta = (ut.m ?? {}) as Json;
+        const hashB64 = typeof meta.h === 'string' ? meta.h : '';
+        const size = typeof meta.s === 'number' ? meta.s : 0;
+        const hex = hashB64 ? hexFromHashB64(hashB64) : null;
+        const link = hashB64 ? linkFromHashB64(hashB64) : CONFIG.avatarBlobUrl;
+        const exists = hex !== null && hasBlob(hex);
+        if (exists || hex === null) {
+          response.b = { ut: { ut: { a: true, l: link } } };
+        } else {
+          response.b = {
+            ut: { ut: { a: false, l: link, u: downloadUrl(hex), h: {} } },
+          };
+        }
+        this.log('BLOB_UPLOAD', { path, hash: hex, size, exists });
+      } else if (q.b && typeof q.b === 'object' && 'vc' in q.b) {
+        const vc = (q.b.vc ?? {}) as Json;
+        const inner = (vc.ut ?? {}) as Json;
+        const link = typeof inner.l === 'string' ? inner.l : '';
+        response.b = { vc: { v: link } };
+        this.log('BLOB_UPLOAD_FINALIZE', { path, link });
       } else if (q.b && typeof q.b === 'object' && 'dt' in q.b) {
         const dt = (q.b.dt ?? {}) as Json;
         const source = typeof dt.l === 'string' ? dt.l : '';
-        const url = source.includes('/cover/')
-          ? CONFIG.coverHttpUrl
-          : CONFIG.avatarHttpUrl;
+        const hex = hexFromLink(source);
+        const stored = hex !== null && hasBlob(hex);
+        const url = stored
+          ? downloadUrl(hex as string)
+          : source.includes('/cover/')
+            ? CONFIG.coverHttpUrl
+            : CONFIG.avatarHttpUrl;
         response.b = {
           dt: { dt: { u: url, h: {} }, pp: CONFIG.blobBase },
         };
-        this.log('BLOB_TICKET', { path, source });
+        this.log('BLOB_TICKET', { path, source, stored });
       } else {
         this.log('UNKNOWN', { path, payload: q });
         response['!'] = 'NotImplemented';
