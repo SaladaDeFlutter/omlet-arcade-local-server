@@ -11,11 +11,11 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
 > descrição e curtir/comentar/compartilhar; a imagem do post usa o logo padrão) e
 > o detalhe do post abre só com texto. Curtidas alternam e persistem entre
 > recarregamentos e reinícios do servidor; comentários podem ser listados e
-> adicionados, e também persistem em disco (`server/state.json`). A aba **Canais**
-> lista a Comunidade Local com o canal de texto “geral”; as mensagens são
-> carregadas, enviadas e persistidas. A aba **Communities** (menu lateral) também
-> abre, mostrando a Comunidade Local e o feed local. DMs, live e mídia do feed
-> ainda **não** estão implementados.
+> adicionados. Contas, posts, curtidas por usuário, comentários, comunidades,
+> membros, canais e mensagens são persistidos em **SQLite** (`server/omlet.db`,
+> WAL). A aba **Canais** lista os canais de texto das comunidades; a aba
+> **Communities** lista/browse as comunidades e o feed local. DMs, live e mídia
+> do feed ainda **não** estão implementados.
 
 > **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
 > Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
@@ -31,8 +31,8 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
   do cliente sobre WebSocket (`md0` → `nd0` → `he` → `ie`).
 - Verificação de disponibilidade do Omlet ID (`ci` → `pz0`).
 - Criação de conta de convidado (`sc` → `nz0`/`z`) com cluster `ONE`.
-- Retomada de sessão após reiniciar o app (`qb` → `z`) apoiada por um
-  armazenamento local de contas (`server/accounts.json`, não versionado).
+- Retomada de sessão após reiniciar o app (`qb` → `z`) apoiada no banco local de
+  contas (`server/omlet.db`, não versionado).
 - O cliente chega à tela Início logado como convidado e mantém a sessão após
   reiniciar.
 - Sessão/keepalive (`rp0` → `sp0`).
@@ -57,15 +57,16 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
   recarregamentos e reinícios do servidor.
 - Comentários em posts: `w.gcvv` (`kt`) → `lt`/`xd` retorna a lista, e `w.ac`
   (`f0`) adiciona um comentário de texto; a folha de comentários renderiza a lista
-  e o feed retorna o `cc` atualizado. Curtidas e comentários são gravados em
-  `server/state.json` (JSON local, escrita atômica).
+  e o feed retorna o `cc` atualizado. Curtidas (por conta), comentários e posts
+  são gravados no SQLite (`server/omlet.db`).
 - Comunidades/canais de texto: a aba Channels pede `i.f` com
-  `ibt=CommunityFeedChannels` e recebe um `ho` da Comunidade Local/canal “geral”;
-  abrir o canal consulta `m.gmfc` (`m.wd`/`lm0`) e enviar texto usa `m.o`, com as
-  mensagens persistidas em `server/state.json`.
+  `ibt=CommunityFeedChannels` e recebe `ho` dos canais das comunidades; abrir o
+  canal consulta `m.gmfc` (`m.wd`/`lm0`) e enviar texto usa `m.o`, com as
+  mensagens persistidas no SQLite.
 - Aba Communities: `w.licu` (`mi0`) → `w.gcm` (`nt`) e o feed `w.gcfr` (`ot`) →
-  `w.ghp` (`sx`); o header `my-communities` (`td0`) mostra a Comunidade Local e o
-  post local.
+  `w.ghp` (`sx`); o header `my-communities` (`td0`) mostra as comunidades do
+  usuário e os posts do feed. `w.cmc` cria uma nova comunidade e `w.lrcmc`
+  lista/browse comunidades.
 - APK corrigido aponta todos os endpoints embutidos para um servidor HTTP/WS local.
 
 Ainda não implementado:
@@ -197,7 +198,9 @@ endpoint do cluster.
 ├── LICENSE
 ├── .gitignore
 ├── server/
-│   ├── server.py            # handshake, sessões e servidor de perfil
+│   ├── server.py            # handshake, sessões e handlers do protocolo
+│   ├── database.py          # schema SQLite, repositório e migração dos JSONs
+│   ├── omlet.db             # banco SQLite em runtime (ignorado pelo Git)
 │   ├── avatar.png          # avatar padrão servido ao cliente
 │   ├── cover.png           # capa padrão do perfil
 │   ├── stub.py             # logger WebSocket bruto (depuração de protocolo)
@@ -207,11 +210,23 @@ endpoint do cluster.
     └── patch-apk.sh         # decodifica/corrige/reconstrói/assina o APK do cliente
 ```
 
-Em tempo de execução o servidor cria `server/accounts.json` para persistir contas
-de convidado entre reinícios e `server/state.json` para persistir curtidas,
-comentários e mensagens de canais. Esses arquivos são ignorados pelo Git. Não há banco de
-dados: a persistência usa JSON local com escrita atômica; SQLite é a evolução
-natural caso o projeto passe a ter múltiplos usuários ou mais concorrência.
+Em tempo de execução o servidor usa `server/omlet.db` (SQLite, WAL,
+`foreign_keys=ON`). O banco é criado automaticamente e ignorado pelo Git. Na
+primeira execução, `server/accounts.json` e `server/state.json` (formato antigo)
+são importados uma única vez; eles continuam apenas como backup legado.
+
+O schema atual é composto por:
+
+- `accounts` — conta, `client_pub`, Omlet ID, scopes, flags de e-mail/senha e o
+  objeto de sessão;
+- `posts`, `post_likes`, `comments` — posts, curtidas **por conta** e
+  comentários;
+- `communities`, `community_members` — comunidades e membros/cargos;
+- `channels`, `channel_messages` — canais de texto e mensagens.
+
+O acesso fica isolado em `server/database.py`, sem SQL espalhado pelos
+handlers. A intenção é trocar o backend para **PostgreSQL** no futuro mantendo a
+mesma API do repositório e o mesmo schema lógico.
 
 O APK original, a árvore decompilada, os APKs reconstruídos, os logs, a chave
 privada e o keystore de assinatura **não** são versionados intencionalmente.
@@ -392,7 +407,7 @@ Responda com o timestamp do servidor:
   **microssegundos**, `s` = id do remetente, `b` = corpo JSON em base64
   (`{"text": "...", "profileVersion": 0}`), `f` = `eo` e `d` = deleted.
 - Enviar texto (e reações): `m.o` (`p0`) com `b`, `f`, `i`, `v`, `w`; resposta
-  `pz0` (`=`). O servidor grava textos em `state.json` e confirma reações.
+  `pz0` (`=`). O servidor grava textos no SQLite e confirma reações.
 - Aba Communities: `w.licu` (`mi0`) → `w.gcm` (`nt`, lista de `ae`); `w.gcfr`
   (`ot`) → `w.ghp` (`sx`) com `p` de `td0`. O header “Minhas Comunidades” é um
   `td0` com `i: "my-communities"` e `c` = lista de `ee`.

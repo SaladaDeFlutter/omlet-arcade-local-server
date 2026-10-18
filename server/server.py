@@ -17,10 +17,13 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PublicKey,
 )
 
+from database import Database
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 KEYS_PATH = os.path.join(BASE, "keys.json")
 ACCOUNTS_PATH = os.path.join(BASE, "accounts.json")
 STATE_PATH = os.path.join(BASE, "state.json")
+DB_PATH = os.path.join(BASE, "omlet.db")
 
 with open(KEYS_PATH, "r", encoding="utf-8") as fh:
     KEYS = json.load(fh)
@@ -59,18 +62,12 @@ logging.basicConfig(
 )
 LOG = logging.getLogger("omlet")
 
-ACCOUNTS = []
 LOCAL_POST_ID = "local-post-1"
 LOCAL_COMMUNITY_ID = "local-community"
 LOCAL_CHANNEL_ID = "local-community-general"
-POSTS = {}
-CHANNELS = {}
-COMMUNITY = {
-    "name": "Comunidade Local",
-    "description": "Comunidade local de testes",
-    "icon": AVATAR_BLOB_URL,
-    "cover": COVER_BLOB_URL,
-}
+LOCAL_CHANNEL_KEY = base64.b64encode(b"omlet-local-channel").decode("ascii")
+
+DB = Database(DB_PATH, default_icon=AVATAR_BLOB_URL, default_cover=COVER_BLOB_URL)
 
 
 def b64d(value):
@@ -92,141 +89,12 @@ def decode_message(message):
     return json.loads(message)
 
 
-def load_accounts():
-    global ACCOUNTS
-    if not os.path.exists(ACCOUNTS_PATH):
-        ACCOUNTS = []
-        return
-    try:
-        with open(ACCOUNTS_PATH, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        ACCOUNTS = data.get("records", [])
-    except Exception as exc:
-        LOG.error("could not load accounts.json: %r", exc)
-        ACCOUNTS = []
-
-
-def save_accounts():
-    tmp = ACCOUNTS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump({"records": ACCOUNTS}, fh, indent=2)
-        fh.write("\n")
-    os.replace(tmp, ACCOUNTS_PATH)
-
-
-def empty_post_state():
-    return {"liked": False, "count": 0, "comments": []}
-
-
-def load_state():
-    global POSTS, CHANNELS, COMMUNITY
-    POSTS = {}
-    CHANNELS = {}
-    COMMUNITY = {
-        "name": "Comunidade Local",
-        "description": "Comunidade local de testes",
-        "icon": AVATAR_BLOB_URL,
-        "cover": COVER_BLOB_URL,
-    }
-    if not os.path.exists(STATE_PATH):
-        return
-    try:
-        with open(STATE_PATH, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        posts = data.get("posts", {})
-        if isinstance(posts, dict):
-            for post_id, post_state in posts.items():
-                if not isinstance(post_state, dict):
-                    continue
-                comments = post_state.get("comments", [])
-                POSTS[post_id] = {
-                    "liked": bool(post_state.get("liked", False)),
-                    "count": max(0, int(post_state.get("count", 0))),
-                    "comments": comments if isinstance(comments, list) else [],
-                }
-        channels = data.get("channels", {})
-        if isinstance(channels, dict):
-            for channel_id, channel_state in channels.items():
-                if (
-                    isinstance(channel_state, dict)
-                    and isinstance(channel_state.get("messages"), list)
-                ):
-                    CHANNELS[channel_id] = {
-                        "messages": channel_state["messages"]
-                    }
-        community = data.get("community")
-        if isinstance(community, dict):
-            for key in ("name", "description", "icon", "cover"):
-                value = community.get(key)
-                if isinstance(value, str) and value:
-                    COMMUNITY[key] = value
-    except Exception as exc:
-        LOG.error("could not load state.json: %r", exc)
-        POSTS = {}
-        CHANNELS = {}
-
-
-def save_state():
-    tmp = STATE_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(
-            {
-                "posts": POSTS,
-                "channels": CHANNELS,
-                "community": COMMUNITY,
-            },
-            fh,
-            indent=2,
-            ensure_ascii=False,
-        )
-        fh.write("\n")
-    os.replace(tmp, STATE_PATH)
-
-
-def get_post_state(post_id=LOCAL_POST_ID):
-    post_state = POSTS.get(post_id)
-    if post_state is None:
-        post_state = empty_post_state()
-        POSTS[post_id] = post_state
-    return post_state
-
-
-def empty_channel_state():
-    return {"messages": []}
-
-
-def get_channel_state(channel_id=LOCAL_CHANNEL_ID):
-    channel_state = CHANNELS.get(channel_id)
-    if channel_state is None:
-        channel_state = empty_channel_state()
-        CHANNELS[channel_id] = channel_state
-    return channel_state
-
-
 def find_account(client_pub=None, account_id=None):
-    if account_id:
-        for record in ACCOUNTS:
-            if record.get("account_id") == account_id:
-                return record
-    if client_pub:
-        for record in ACCOUNTS:
-            if record.get("client_pub") == client_pub:
-                return record
-    return None
+    return DB.find_account(client_pub=client_pub, account_id=account_id)
 
 
 def upsert_account(record):
-    for index, existing in enumerate(ACCOUNTS):
-        if (
-            existing.get("client_pub") == record.get("client_pub")
-            or existing.get("account_id") == record.get("account_id")
-        ):
-            ACCOUNTS[index] = record
-            save_accounts()
-            return record
-    ACCOUNTS.append(record)
-    save_accounts()
-    return record
+    return DB.upsert_account(record)
 
 
 def build_account(client_pub, api_key, account_id, omlet_id, scopes, created_ms=None):
@@ -267,10 +135,10 @@ def make_record(client_pub, api_key, account_id, omlet_id, scopes):
 
 def session_z(record):
     z = dict(record.get("z", {}))
-    z["e"] = True
+    z["e"] = bool(record.get("has_email", True))
     z["p"] = False
     profile = dict(z.get("a", {}))
-    profile["h"] = True
+    profile["h"] = bool(record.get("has_password", True))
     z["a"] = profile
     return z
 
@@ -317,6 +185,17 @@ def get_or_create_record(client_pub, api_key, account_id=None):
     return upsert_account(record)
 
 
+def current_record(state):
+    record = find_account(client_pub=state.get("client_pub"))
+    if record is None:
+        record = get_or_create_record(
+            state.get("client_pub", ""),
+            state.get("api", ""),
+            None,
+        )
+    return record
+
+
 def profile_detail(record):
     omlet_id = record.get("omlet_id", "omletplayer")
     return {
@@ -338,139 +217,218 @@ def comment_author(record):
     }
 
 
-def comment_subject(record):
+def comment_subject(record, post_id):
     return {
         "a": record.get("account_id", ""),
         "t": "Message",
-        "id": b64e(record.get("account_id", "").encode("utf-8")),
+        "id": b64e(post_id.encode("utf-8")),
     }
 
 
-def make_comment(record, text):
+def community_info(community):
     return {
-        "i": b64e(os.urandom(8)),
-        "T": "TEXT",
-        "b": b64e(text.encode("utf-8")),
-        "t": int(time.time() * 1000),
-        "u": comment_author(record),
-        "p": comment_subject(record),
-    }
-
-
-def local_channel_eo():
-    return {"a": LOCAL_CHANNEL_ID, "k": b64e(b"omlet-local-channel")}
-
-
-def local_community_info():
-    return {
-        "cid": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
-        "n": COMMUNITY["name"],
-        "i": COMMUNITY["icon"],
+        "cid": {
+            "ct": "Managed",
+            "cid": community["community_id"],
+            "p": "Android",
+        },
+        "n": community["name"],
+        "i": community.get("icon") or AVATAR_BLOB_URL,
         "ll": [],
         "sq": False,
     }
 
 
-def local_channel_io():
+def community_ee(community, account_id=None):
+    members = DB.list_members(community["community_id"])
+    admins = [
+        member["account_id"]
+        for member in members
+        if member.get("role") in ("owner", "admin")
+    ]
+    owner_id = community.get("owner_account_id")
+    if owner_id and owner_id not in admins:
+        admins.append(owner_id)
+    if not admins and account_id:
+        admins.append(account_id)
     return {
-        "f": local_channel_eo(),
-        "n": "geral",
-        "ci": local_community_info(),
-        "mc": 1,
-        "td": "Canal de texto da comunidade",
+        "cci": {
+            "ct": "Managed",
+            "cid": community["community_id"],
+            "p": "Android",
+        },
+        "c": len(members),
+        "p": 0,
+        "l": 0,
+        "im": False,
+        "m": {
+            "dn": community["name"],
+            "ci": community.get("icon") or AVATAR_BLOB_URL,
+            "b": community.get("cover") or COVER_BLOB_URL,
+            "d": community.get("description") or "",
+            "al": admins,
+        },
+        "t": int(time.time() * 1000),
     }
 
 
-def local_channel_feed():
-    now = int(time.time() * 1000)
+def channel_eo(channel):
+    return {"a": channel["channel_id"], "k": channel["key_b64"]}
+
+
+def channel_io(channel, community):
+    members = DB.count_members(community["community_id"])
     return {
-        "f": local_channel_eo(),
-        "n": "geral",
+        "f": channel_eo(channel),
+        "n": channel["name"],
+        "ci": community_info(community),
+        "mc": max(1, members),
+        "td": channel.get("description") or "",
+    }
+
+
+def channel_feed(channel, community):
+    members = DB.count_members(community["community_id"])
+    return {
+        "f": channel_eo(channel),
+        "n": channel["name"],
         "a": "Yes",
-        "mc": 1,
-        "fc": local_community_info(),
-        "lrt": now,
+        "mc": max(1, members),
+        "fc": community_info(community),
+        "lrt": int(time.time() * 1000),
         "ibt": "CommunityFeedChannels",
     }
 
 
-def make_channel_message(record, text):
-    now = int(time.time() * 1000000)
-    body = json.dumps(
-        {"text": text, "profileVersion": 0}, ensure_ascii=False
-    ).encode("utf-8")
+def make_feed_post(post, author, viewer_account_id=None):
+    post_id = post["post_id"]
+    liked = (
+        DB.is_liked(post_id, viewer_account_id)
+        if viewer_account_id
+        else False
+    )
+    like_count = DB.count_likes(post_id)
+    comment_count = DB.count_comments(post_id)
+    omlet_id = author.get("omlet_id", "omletplayer")
     return {
-        "i": {"t": "text", "i": b64e(os.urandom(32))},
-        "t": now,
-        "s": record.get("account_id", ""),
-        "b": b64e(body),
-        "f": local_channel_eo(),
-        "d": False,
-        "rn": now,
-    }
-
-
-def local_community_ee(record):
-    now = int(time.time() * 1000)
-    return {
-        "cci": {"ct": "Managed", "cid": LOCAL_COMMUNITY_ID, "p": "Android"},
-        "c": 1,
-        "p": 1,
-        "l": 0,
-        "im": False,
-        "m": {
-            "dn": COMMUNITY["name"],
-            "ci": COMMUNITY["icon"],
-            "b": COMMUNITY["cover"],
-            "d": COMMUNITY["description"],
-            "al": [record.get("account_id", "")],
-        },
-        "t": now,
-    }
-
-
-def make_feed_post(record, post_state):
-    now = int(time.time() * 1000)
-    return {
-        "i": LOCAL_POST_ID,
-        "a": profile_about(record),
+        "i": post_id,
+        "a": profile_about(author),
         "P": {
             "m": {
-                "u": "Hello from the local Omlet server!",
-                "t": "Hello from the local Omlet server!",
-                "d": "Posted via the local server",
+                "u": post["title"],
+                "t": post["title"],
+                "d": post.get("description") or "",
                 "P": "https://omlet.gg",
-                "Q": "Hello from the local Omlet server!",
-                "U": "Local server test post",
-                "oi": {
-                    "p": record.get("omlet_id", "omletplayer"),
-                    "t": "omlet",
-                },
-                "un": record.get("omlet_id", "omletplayer"),
+                "Q": post["title"],
+                "U": post["title"],
+                "oi": {"p": omlet_id, "t": "omlet"},
+                "un": omlet_id,
                 "id": {
-                    "a": record.get("account_id", ""),
+                    "a": author.get("account_id", ""),
                     "t": "Message",
-                    "id": b64e(record.get("account_id", "").encode("utf-8")),
+                    "id": b64e(post_id.encode("utf-8")),
                 },
                 "usr": {
-                    "a": record.get("account_id", ""),
-                    "n": record.get("omlet_id", "omletplayer"),
+                    "a": author.get("account_id", ""),
+                    "n": omlet_id,
                     "p": AVATAR_BLOB_URL,
                     "vfs": [],
                 },
                 "gn": [],
                 "gi": [],
                 "g": [],
-                "ct": now,
-                "cc": len(post_state["comments"]),
-                "l": post_state["count"],
-                "yl": post_state["liked"],
+                "ct": post["created_ms"],
+                "cc": comment_count,
+                "l": like_count,
+                "yl": liked,
                 "vd": False,
             }
         },
-        "ls": {"t": str(now)},
+        "ls": {"t": str(post["created_ms"])},
         "ofc": 0,
     }
+
+
+def comment_payload(row):
+    author = find_account(account_id=row["author_account_id"])
+    if author is None:
+        author = DB.ensure_account(
+            row["author_account_id"],
+            row.get("author_omlet_id") or "omletplayer",
+        )
+    return {
+        "i": row["comment_id"],
+        "T": "TEXT",
+        "b": b64e(row["text"].encode("utf-8")),
+        "t": row["created_ms"],
+        "u": comment_author(author),
+        "p": comment_subject(author, row["post_id"]),
+    }
+
+
+def channel_message_payload(row, channel):
+    body = json.dumps(
+        {"text": row["text"], "profileVersion": 0},
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return {
+        "i": {"t": "text", "i": row["message_id"]},
+        "t": row["created_us"],
+        "s": row["author_account_id"],
+        "b": b64e(body),
+        "f": channel_eo(channel),
+        "d": False,
+        "rn": row["created_us"],
+    }
+
+
+def post_id_from_subject(subject):
+    if isinstance(subject, dict):
+        raw = subject.get("id")
+        if isinstance(raw, str) and raw:
+            try:
+                decoded = b64d(raw).decode("utf-8", "replace")
+            except Exception:
+                decoded = ""
+            for candidate in (decoded, raw):
+                if candidate and DB.get_post(candidate):
+                    return candidate
+    posts = DB.list_posts(limit=1)
+    return posts[0]["post_id"] if posts else LOCAL_POST_ID
+
+
+def community_id_from_request(req):
+    if isinstance(req, dict):
+        cid = req.get("cid")
+        if isinstance(cid, dict):
+            value = cid.get("cid") or cid.get("a")
+            if isinstance(value, str) and value:
+                return value
+        value = req.get("ci") or req.get("c")
+        if isinstance(value, str) and value:
+            return value
+    return LOCAL_COMMUNITY_ID
+
+
+def channel_id_from_request(req):
+    if isinstance(req, dict):
+        value = req.get("a") or req.get("i")
+        if isinstance(value, str) and value:
+            return value
+    return LOCAL_CHANNEL_ID
+
+
+def ensure_seed_post(record):
+    posts = DB.list_posts(limit=1)
+    if posts:
+        return posts[0]
+    DB.ensure_post(
+        LOCAL_POST_ID,
+        record["account_id"],
+        "Hello from the local Omlet server!",
+        "Posted via the local server",
+    )
+    return DB.get_post(LOCAL_POST_ID)
 
 
 async def handler(ws, *args):
@@ -616,20 +574,33 @@ async def handler(ws, *args):
                 key in q["w"] for key in ("gfc", "gafc", "guwc")
             ):
                 keys = list(q["w"].keys())
-                response["="] = {"v": 1 if "guwc" in keys else 0}
+                record = current_record(state)
+                value = (
+                    DB.count_posts_by_author(record["account_id"])
+                    if "guwc" in keys
+                    else 0
+                )
+                response["="] = {"v": value}
                 LOG.info(
                     "COUNT path=%s keys=%s value=%s",
                     path,
                     keys,
-                    response["="]["v"],
+                    value,
                 )
             elif isinstance(q.get("w"), dict) and "gcvv" in q["w"]:
-                post_state = get_post_state()
-                response["w"] = {"gcvv": {"C": post_state["comments"]}}
+                request = q["w"]["gcvv"] or {}
+                post_id = post_id_from_subject(
+                    request.get("id") if isinstance(request, dict) else None
+                )
+                comments = DB.list_comments(post_id)
+                response["w"] = {
+                    "gcvv": {"C": [comment_payload(row) for row in comments]}
+                }
                 LOG.info(
-                    "COMMENTS_LIST path=%s count=%d",
+                    "COMMENTS_LIST path=%s post=%s count=%d",
                     path,
-                    len(post_state["comments"]),
+                    post_id,
+                    len(comments),
                 )
             elif isinstance(q.get("w"), dict) and "ac" in q["w"]:
                 add_req = q["w"]["ac"] or {}
@@ -638,39 +609,50 @@ async def handler(ws, *args):
                     raw_text = add_req.get("b")
                     if raw_text:
                         text = b64d(raw_text).decode("utf-8", "replace")
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
-                    )
-                post_state = get_post_state()
-                post_state["comments"].append(make_comment(record, text))
-                save_state()
+                    post_id = post_id_from_subject(add_req.get("id"))
+                else:
+                    post_id = LOCAL_POST_ID
+                record = current_record(state)
+                comment = DB.add_comment(
+                    post_id,
+                    record["account_id"],
+                    text,
+                    client_id=(
+                        add_req.get("i")
+                        if isinstance(add_req, dict)
+                        else None
+                    ),
+                )
                 response["="] = {"v": True}
                 LOG.info(
-                    "COMMENT_ADD path=%s text=%r count=%d",
+                    "COMMENT_ADD path=%s post=%s text=%r count=%d",
                     path,
+                    post_id,
                     text,
-                    len(post_state["comments"]),
+                    DB.count_comments(post_id),
                 )
             elif isinstance(q.get("w"), dict) and "l" in q["w"]:
                 like_req = q["w"]["l"] or {}
-                liked = bool(like_req.get("l", False)) if isinstance(like_req, dict) else False
-                post_state = get_post_state()
-                if liked != post_state["liked"]:
-                    post_state["count"] = max(
-                        0, post_state["count"] + (1 if liked else -1)
-                    )
-                    post_state["liked"] = liked
-                    save_state()
+                liked = (
+                    bool(like_req.get("l", False))
+                    if isinstance(like_req, dict)
+                    else False
+                )
+                subject = like_req.get("ud") if isinstance(like_req, dict) else None
+                post_id = post_id_from_subject(subject)
+                record = current_record(state)
+                count = DB.set_like(
+                    post_id,
+                    record["account_id"],
+                    liked,
+                )
                 response["="] = {"v": True}
                 LOG.info(
-                    "LIKE path=%s liked=%s count=%s",
+                    "LIKE path=%s post=%s liked=%s count=%s",
                     path,
+                    post_id,
                     liked,
-                    post_state["count"],
+                    count,
                 )
             elif isinstance(q.get("m"), dict) and "o" in q["m"]:
                 op = q["m"]["o"] or {}
@@ -681,47 +663,36 @@ async def handler(ws, *args):
                     else None
                 )
                 raw_body = op.get("b")
+                channel_id = channel_id_from_request(op.get("f"))
                 if message_type == "text" and raw_body:
-                    record = find_account(
-                        client_pub=state.get("client_pub")
-                    )
-                    if record is None:
-                        record = get_or_create_record(
-                            state.get("client_pub", ""),
-                            state.get("api", ""),
-                            None,
-                        )
-                    channel_state = get_channel_state()
-                    encoded_id = message_id.get("i")
-                    is_duplicate = any(
-                        item.get("i", {}).get("i") == encoded_id
-                        for item in channel_state["messages"]
-                    )
-                    if not is_duplicate:
-                        now = int(time.time() * 1000000)
-                        channel_state["messages"].append(
-                            {
-                                "i": message_id,
-                                "t": now,
-                                "s": record.get("account_id", ""),
-                                "b": raw_body,
-                                "f": op.get("f") or local_channel_eo(),
-                                "d": False,
-                                "rn": now,
-                            }
-                        )
-                        save_state()
+                    record = current_record(state)
                     text = ""
                     try:
                         text = json.loads(b64d(raw_body)).get("text", "")
                     except Exception:
                         pass
+                    DB.add_message(
+                        channel_id,
+                        record["account_id"],
+                        text,
+                        message_id=(
+                            message_id.get("i")
+                            if isinstance(message_id, dict)
+                            else None
+                        ),
+                        client_id=(
+                            message_id.get("i")
+                            if isinstance(message_id, dict)
+                            else None
+                        ),
+                    )
                     LOG.info(
-                        "CHANNEL_SEND path=%s type=%s text=%r count=%d",
+                        "CHANNEL_SEND path=%s channel=%s type=%s text=%r count=%d",
                         path,
+                        channel_id,
                         message_type,
                         text,
-                        len(channel_state["messages"]),
+                        DB.count_messages(channel_id),
                     )
                 else:
                     LOG.info(
@@ -731,37 +702,70 @@ async def handler(ws, *args):
                     )
                 response["="] = {"v": True}
             elif isinstance(q.get("m"), dict) and "gmfc" in q["m"]:
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
-                    )
-                channel_state = get_channel_state()
-                if not channel_state["messages"]:
-                    channel_state["messages"].append(
-                        make_channel_message(
-                            record,
-                            "Bem-vindo ao canal geral da Comunidade Local!",
+                record = current_record(state)
+                request = q["m"]["gmfc"] or {}
+                channel_id = channel_id_from_request(
+                    request.get("f") if isinstance(request, dict) else None
+                )
+                channel = DB.get_channel(channel_id)
+                if channel is None:
+                    channel = DB.get_channel(LOCAL_CHANNEL_ID)
+                if channel is None:
+                    community = DB.get_community(LOCAL_COMMUNITY_ID)
+                    if community is None:
+                        community = DB.insert_community(
+                            LOCAL_COMMUNITY_ID,
+                            "Comunidade Local",
+                            "Comunidade local de testes",
+                            AVATAR_BLOB_URL,
+                            COVER_BLOB_URL,
+                            record["account_id"],
                         )
+                    channel = DB.insert_channel(
+                        LOCAL_CHANNEL_ID,
+                        community["community_id"],
+                        "geral",
+                        "Canal de texto da comunidade",
+                        LOCAL_CHANNEL_KEY,
                     )
-                    save_state()
+                community = DB.get_community(channel["community_id"])
+                if community is None:
+                    community = DB.get_community(LOCAL_COMMUNITY_ID)
+                messages = DB.list_messages(channel["channel_id"])
+                if not messages:
+                    DB.add_message(
+                        channel["channel_id"],
+                        record["account_id"],
+                        "Bem-vindo ao canal geral da Comunidade Local!",
+                    )
+                    messages = DB.list_messages(channel["channel_id"])
+                senders = {}
+                for message in messages:
+                    sender = find_account(
+                        account_id=message["author_account_id"]
+                    )
+                    if sender is None:
+                        sender = DB.ensure_account(
+                            message["author_account_id"],
+                            message.get("author_omlet_id") or "omletplayer",
+                        )
+                    senders[sender["account_id"]] = comment_author(sender)
                 response["m"] = {
                     "wd": {
-                        "c": channel_state["messages"],
+                        "c": [
+                            channel_message_payload(message, channel)
+                            for message in messages
+                        ],
                         "p": False,
-                        "s": {
-                            record.get("account_id", ""): comment_author(record)
-                        },
-                        "fd": local_channel_feed(),
+                        "s": senders,
+                        "fd": channel_feed(channel, community),
                     }
                 }
                 LOG.info(
                     "CHANNEL_MESSAGES path=%s channel=%s count=%d",
                     path,
-                    LOCAL_CHANNEL_ID,
-                    len(channel_state["messages"]),
+                    channel["channel_id"],
+                    len(messages),
                 )
             elif isinstance(q.get("i"), dict) and "f" in q["i"]:
                 feed_req = q["i"].get("f")
@@ -769,8 +773,17 @@ async def handler(ws, *args):
                     feed_req.get("ibt") if isinstance(feed_req, dict) else None
                 )
                 if item_type == "CommunityFeedChannels":
-                    response["i"] = {"f": {"f": [local_channel_feed()]}}
-                    LOG.info("CHANNELS path=%s count=1", path)
+                    record = current_record(state)
+                    channels = DB.list_channels(account_id=record["account_id"])
+                    if not channels:
+                        channels = DB.list_channels()
+                    feeds = []
+                    for channel in channels:
+                        community = DB.get_community(channel["community_id"])
+                        if community is not None:
+                            feeds.append(channel_feed(channel, community))
+                    response["i"] = {"f": {"f": feeds}}
+                    LOG.info("CHANNELS path=%s count=%d", path, len(feeds))
                 else:
                     response["i"] = {"f": {"f": []}}
                     LOG.info(
@@ -781,127 +794,214 @@ async def handler(ws, *args):
             elif isinstance(q.get("w"), dict) and any(
                 key in q["w"] for key in ("grp", "gtp", "grgw")
             ):
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
-                    )
-                post_state = get_post_state()
-                post = make_feed_post(record, post_state)
-                response["w"] = {"w": {"w": {"p": [post["P"]]}}}
+                record = current_record(state)
+                posts = DB.list_posts()
+                if not posts:
+                    posts = [ensure_seed_post(record)]
+                response["w"] = {
+                    "w": {
+                        "w": {
+                            "p": [
+                                make_feed_post(post, find_account(account_id=post["author_account_id"]) or record, record["account_id"])["P"]
+                                for post in posts
+                            ]
+                        }
+                    }
+                }
                 LOG.info(
-                    "COMMUNITY_POSTS path=%s keys=%s count=1",
+                    "COMMUNITY_POSTS path=%s keys=%s count=%d",
                     path,
                     list(q["w"].keys()),
+                    len(posts),
                 )
             elif isinstance(q.get("w"), dict) and "gcfr" in q["w"]:
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
-                    )
-                post_state = get_post_state()
-                post = make_feed_post(record, post_state)
+                record = current_record(state)
+                communities = DB.list_communities(account_id=record["account_id"])
+                if not communities:
+                    communities = DB.list_communities()
+                posts = DB.list_posts()
+                if not posts:
+                    posts = [ensure_seed_post(record)]
                 header = {
                     "i": "my-communities",
-                    "c": [local_community_ee(record)],
+                    "c": [
+                        community_ee(community, record["account_id"])
+                        for community in communities
+                    ],
                 }
-                response["w"] = {"ghp": {"p": [header, post]}}
-                LOG.info("COMMUNITY_FEED path=%s count=2", path)
+                feed_posts = [
+                    make_feed_post(
+                        post,
+                        find_account(account_id=post["author_account_id"]) or record,
+                        record["account_id"],
+                    )
+                    for post in posts
+                ]
+                response["w"] = {"ghp": {"p": [header] + feed_posts}}
+                LOG.info(
+                    "COMMUNITY_FEED path=%s communities=%d posts=%d",
+                    path,
+                    len(communities),
+                    len(feed_posts),
+                )
             elif isinstance(q.get("w"), dict) and "licu" in q["w"]:
-                response["w"] = {"gcm": {"c": [], "p": 0}}
-                LOG.info("COMMUNITIES path=%s count=0", path)
+                record = current_record(state)
+                communities = DB.list_communities(account_id=record["account_id"])
+                items = [
+                    {
+                        "p": {
+                            "ct": "Managed",
+                            "cid": community["community_id"],
+                            "p": "Android",
+                        },
+                        "cic": community_ee(
+                            community,
+                            record["account_id"],
+                        ),
+                    }
+                    for community in communities
+                ]
+                response["w"] = {"gcm": {"c": items, "p": len(items)}}
+                LOG.info("COMMUNITIES path=%s count=%d", path, len(items))
             elif isinstance(q.get("w"), dict) and "ut" in q["w"]:
                 response["w"] = {
                     "ut": {"ut": {"a": True, "l": AVATAR_BLOB_URL}}
                 }
                 LOG.info("BLOB_UPLOAD path=%s category=w", path)
             elif isinstance(q.get("w"), dict) and "lrcmc" in q["w"]:
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
-                    )
+                record = current_record(state)
+                communities = DB.list_communities()
                 response["w"] = {
-                    "lrcmc": {"cic": [local_community_ee(record)]}
+                    "lrcmc": {
+                        "cic": [
+                            community_ee(community, record["account_id"])
+                            for community in communities
+                        ]
+                    }
                 }
-                LOG.info("BROWSE_COMMUNITIES path=%s count=1", path)
+                LOG.info(
+                    "BROWSE_COMMUNITIES path=%s count=%d",
+                    path,
+                    len(communities),
+                )
             elif isinstance(q.get("w"), dict) and "cmc" in q["w"]:
                 create_req = q["w"]["cmc"] or {}
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
-                    )
+                record = current_record(state)
+                name = "Comunidade Local"
+                description = "Comunidade local de testes"
+                icon = AVATAR_BLOB_URL
+                cover = COVER_BLOB_URL
                 if isinstance(create_req, dict):
-                    name = create_req.get("n")
-                    if isinstance(name, str) and name.strip():
-                        COMMUNITY["name"] = name.strip()[:50]
-                    description = create_req.get("d")
-                    if isinstance(description, str) and description.strip():
-                        COMMUNITY["description"] = description.strip()[:1500]
-                    icon = create_req.get("i")
-                    if isinstance(icon, str) and icon:
-                        COMMUNITY["icon"] = icon
-                    cover = create_req.get("b")
-                    if isinstance(cover, str) and cover:
-                        COMMUNITY["cover"] = cover
-                save_state()
-                community = local_community_ee(record)
-                response["w"] = {"cmc": {"cic": community}}
+                    requested_name = create_req.get("n")
+                    if isinstance(requested_name, str) and requested_name.strip():
+                        name = requested_name.strip()[:50]
+                    requested_description = create_req.get("d")
+                    if (
+                        isinstance(requested_description, str)
+                        and requested_description.strip()
+                    ):
+                        description = requested_description.strip()[:1500]
+                    requested_icon = create_req.get("i")
+                    if isinstance(requested_icon, str) and requested_icon:
+                        icon = requested_icon
+                    requested_cover = create_req.get("b")
+                    if isinstance(requested_cover, str) and requested_cover:
+                        cover = requested_cover
+                community = DB.create_community(
+                    name,
+                    description,
+                    icon,
+                    cover,
+                    record["account_id"],
+                )
+                DB.create_channel(
+                    community["community_id"],
+                    "geral",
+                    "Canal de texto da comunidade",
+                )
+                response["w"] = {
+                    "cmc": {
+                        "cic": community_ee(
+                            community,
+                            record["account_id"],
+                        )
+                    }
+                }
                 LOG.info(
-                    "CREATE_COMMUNITY path=%s name=%r description=%r",
+                    "CREATE_COMMUNITY path=%s id=%s name=%r",
                     path,
-                    COMMUNITY["name"],
-                    COMMUNITY["description"],
+                    community["community_id"],
+                    name,
                 )
             elif isinstance(q.get("w"), dict) and "lmcf" in q["w"]:
-                response["w"] = {
-                    "lmcf": {"df": [], "f": [local_channel_io()]}
-                }
-                LOG.info("COMMUNITY_CHANNELS path=%s count=1", path)
+                request = q["w"]["lmcf"] or {}
+                community_id = community_id_from_request(request)
+                channels = DB.list_channels(community_id=community_id)
+                community = DB.get_community(community_id)
+                feeds = []
+                if community is not None:
+                    feeds = [
+                        channel_io(channel, community)
+                        for channel in channels
+                    ]
+                response["w"] = {"lmcf": {"df": [], "f": feeds}}
+                LOG.info(
+                    "COMMUNITY_CHANNELS path=%s community=%s count=%d",
+                    path,
+                    community_id,
+                    len(feeds),
+                )
             elif isinstance(q.get("w"), dict) and "lmmc" in q["w"]:
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
+                request = q["w"]["lmmc"] or {}
+                community_id = community_id_from_request(request)
+                record = current_record(state)
+                members = DB.list_members(community_id)
+                if not members:
+                    DB.add_member(
+                        community_id,
+                        record["account_id"],
+                        "owner",
                     )
+                    members = DB.list_members(community_id)
                 response["w"] = {
                     "lmmc": {
                         "f": [
                             {
-                                "a": record.get("account_id", ""),
-                                "n": record.get("omlet_id", "omletplayer"),
+                                "a": member["account_id"],
+                                "n": member.get("omlet_id", "omletplayer"),
                                 "p": AVATAR_BLOB_URL,
                                 "vfs": [],
-                                "fs": False,
+                                "fs": member.get("role") in ("owner", "admin"),
                             }
+                            for member in members
                         ]
                     }
                 }
-                LOG.info("COMMUNITY_MEMBERS path=%s count=1", path)
+                LOG.info(
+                    "COMMUNITY_MEMBERS path=%s community=%s count=%d",
+                    path,
+                    community_id,
+                    len(members),
+                )
             elif isinstance(q.get("w"), dict) and "ghp" in q["w"]:
-                record = find_account(client_pub=state.get("client_pub"))
-                if record is None:
-                    record = get_or_create_record(
-                        state.get("client_pub", ""),
-                        state.get("api", ""),
-                        None,
+                record = current_record(state)
+                posts = DB.list_posts()
+                if not posts:
+                    posts = [ensure_seed_post(record)]
+                feed_posts = [
+                    make_feed_post(
+                        post,
+                        find_account(account_id=post["author_account_id"]) or record,
+                        record["account_id"],
                     )
-                post_state = get_post_state()
-                post = make_feed_post(record, post_state)
-                response["w"] = {"ghp": {"p": [post]}}
-                LOG.info("FEED path=%s post=%s", path, post["i"])
+                    for post in posts
+                ]
+                response["w"] = {"ghp": {"p": feed_posts}}
+                LOG.info(
+                    "FEED path=%s posts=%d",
+                    path,
+                    len(feed_posts),
+                )
             elif isinstance(q.get("p"), dict) and "sab" in q["p"]:
                 response["="] = {"v": True}
                 LOG.info("SET_BIRTHDAY path=%s", path)
@@ -981,8 +1081,17 @@ def start_avatar_server():
 
 
 async def main():
-    load_accounts()
-    load_state()
+    DB.initialize()
+    DB.migrate_json(
+        ACCOUNTS_PATH,
+        STATE_PATH,
+        LOCAL_POST_ID,
+        LOCAL_COMMUNITY_ID,
+        LOCAL_CHANNEL_ID,
+        LOCAL_CHANNEL_KEY,
+        "Hello from the local Omlet server!",
+        "Posted via the local server",
+    )
     start_avatar_server()
     async with websockets.serve(
         handler,
@@ -993,7 +1102,10 @@ async def main():
     ):
         LOG.info("Omlet local server listening on 0.0.0.0:8080")
         LOG.info("server public key: %s", SERVER_PUBLIC_B64)
-        LOG.info("accounts loaded: %d", len(ACCOUNTS))
+        LOG.info("database: %s", DB_PATH)
+        LOG.info("accounts loaded: %d", DB.count_accounts())
+        LOG.info("posts loaded: %d", len(DB.list_posts(limit=1000)))
+        LOG.info("communities loaded: %d", len(DB.list_communities()))
         await asyncio.Future()
 
 

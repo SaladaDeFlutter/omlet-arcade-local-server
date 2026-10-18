@@ -18,6 +18,9 @@ server/keys.json
 server/accounts.json
 server/state.json
 server/state.json.tmp
+server/omlet.db
+server/omlet.db-wal
+server/omlet.db-shm
 tools/*.keystore
 tools/*.jks
 *.pem
