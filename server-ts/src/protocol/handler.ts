@@ -756,6 +756,9 @@ export class LongdanHandler {
           p: { S: accounts.map((account) => ({ a: account, o: false })) },
         };
         this.log('GET_PRESENCE', { path, count: accounts.length });
+      } else if (q.ps && typeof q.ps === 'object' && 'grrc' in q.ps) {
+        response.ps = { grrc: { u: [] } };
+        this.log('RECENT_ROOMS', { path });
       } else if (q.M && typeof q.M === 'object' && 'R' in q.M) {
         response['='] = { v: true };
         this.log('CONTROL_EVENTS', { path });
@@ -771,9 +774,15 @@ export class LongdanHandler {
       } else if (q.w && typeof q.w === 'object' && 'gci' in q.w) {
         response['='] = { v: true };
         this.log('CLIENT_APPS', { path });
+      } else if (q.w && typeof q.w === 'object' && 'gfcl' in q.w) {
+        response.w = { gfcl: { ci: [] } };
+        this.log('CONTENT_LIST', { path });
       } else if (q.i && typeof q.i === 'object' && 'S' in q.i) {
         response['='] = { v: true };
         this.log('SESSION_PING', { path });
+      } else if (q.i && typeof q.i === 'object' && 'ltfs' in q.i) {
+        response.i = { ltfs: { lt: [] } };
+        this.log('TOURNAMENT_FEED', { path });
       } else if (q.ca && typeof q.ca === 'object' && 'gnw' in q.ca) {
         response.ca = {
           gnw: { wa: '', bnc: '', hpg: false },
