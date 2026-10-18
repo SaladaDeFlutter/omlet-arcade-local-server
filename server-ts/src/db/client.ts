@@ -39,6 +39,17 @@ export function initializeDatabase(): void {
   }
   sqlite.pragma('user_version = 1');
 
+  try {
+    sqlite.exec(
+      'CREATE UNIQUE INDEX IF NOT EXISTS accounts_omlet_id_unique ON accounts(omlet_id COLLATE NOCASE)',
+    );
+  } catch (error) {
+    console.warn(
+      '[db] não foi possível criar o índice único de omlet_id',
+      error,
+    );
+  }
+
   const firstAccount = db
     .select()
     .from(accounts)

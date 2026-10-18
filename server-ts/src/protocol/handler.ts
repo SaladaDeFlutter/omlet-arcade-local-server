@@ -94,7 +94,7 @@ function getOrCreateRecord(
       clientPub,
       apiKey,
       id,
-      'omletplayer',
+      repositories.uniqueGuestOmletId(),
       ['PublicProfile', 'Arcade'],
     ),
   );
@@ -243,33 +243,61 @@ export class LongdanHandler {
         response.a = { cis: { s: 'Success' } };
         this.log('CHECK_IDENTITY', { path, payload: q.a.cis });
       } else if (q.a && typeof q.a === 'object' && 'ci' in q.a) {
-        response['='] = { v: true };
-        this.log('CHECK_ID', { path, payload: q.a.ci });
+        const ci = (q.a.ci ?? {}) as Json;
+        const identity = (ci.i ?? {}) as Json;
+        const idType = typeof identity.t === 'string' ? identity.t : '';
+        const idValue = typeof identity.p === 'string' ? identity.p : '';
+        if (idType === 'omlet' && idValue) {
+          const available = repositories.isOmletIdAvailable(
+            idValue,
+            state.clientPub || undefined,
+          );
+          response['='] = { v: available };
+          this.log('CHECK_ID', {
+            path,
+            omlet_id: idValue,
+            available,
+          });
+        } else {
+          response['='] = { v: true };
+          this.log('CHECK_ID', { path, type: idType });
+        }
       } else if (q.a && typeof q.a === 'object' && 'sc' in q.a) {
         const sc = (q.a.sc ?? {}) as Json;
-        const omletId = String(sc.s ?? 'omletplayer');
+        const omletId = String(sc.s ?? 'omletplayer').trim() || 'omletplayer';
         const accountId = String(
           sc.a ?? crypto.randomUUID().replaceAll('-', ''),
         );
         const scopes = Array.isArray(sc.S)
           ? sc.S.map(String)
           : ['PublicProfile', 'Arcade'];
-        const record = repositories.upsertAccount(
-          makeRecord(
-            state.clientPub ?? '',
-            state.api ?? '',
-            accountId,
-            omletId,
+        if (
+          !repositories.isOmletIdAvailable(omletId, state.clientPub || undefined)
+        ) {
+          response['!'] = 'IdentityAlreadyExists';
+          this.log('CREATE_ACCOUNT_DUPLICATE', {
+            path,
+            account: accountId,
+            omlet_id: omletId,
+          });
+        } else {
+          const record = repositories.upsertAccount(
+            makeRecord(
+              state.clientPub ?? '',
+              state.api ?? '',
+              accountId,
+              omletId,
+              scopes,
+            ),
+          );
+          response.a = { sc: { s: 'GUEST', a: record.z } };
+          this.log('CREATE_ACCOUNT', {
+            path,
+            account: accountId,
+            omlet_id: omletId,
             scopes,
-          ),
-        );
-        response.a = { sc: { s: 'GUEST', a: record.z } };
-        this.log('CREATE_ACCOUNT', {
-          path,
-          account: accountId,
-          omlet_id: omletId,
-          scopes,
-        });
+          });
+        }
       } else if (q.p && typeof q.p === 'object' && 'spat' in q.p) {
         const req = (q.p.spat ?? {}) as Json;
         const record = currentAccount(state);

@@ -148,6 +148,34 @@ export class Repositories {
     return row ? parseAccount(row) : null;
   }
 
+  findAccountByOmletId(omletId: string): Account | null {
+    const name = omletId.trim();
+    if (!name) return null;
+    const row = db
+      .select()
+      .from(accounts)
+      .where(sql`lower(${accounts.omletId}) = lower(${name})`)
+      .get();
+    return row ? parseAccount(row) : null;
+  }
+
+  isOmletIdAvailable(omletId: string, exceptClientPub?: string): boolean {
+    const clash = this.findAccountByOmletId(omletId);
+    if (!clash) return true;
+    return Boolean(
+      exceptClientPub && clash.clientPub && clash.clientPub === exceptClientPub,
+    );
+  }
+
+  uniqueGuestOmletId(base = 'omletplayer'): string {
+    if (this.isOmletIdAvailable(base)) return base;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const candidate = `${base}${crypto.randomInt(1000, 10000)}`;
+      if (this.isOmletIdAvailable(candidate)) return candidate;
+    }
+    return `${base}${Date.now()}`;
+  }
+
   upsertAccount(input: AccountInput): Account {
     const existing =
       this.findAccount(input.accountId, input.clientPub ?? undefined) ?? null;
@@ -179,14 +207,16 @@ export class Repositories {
     return result;
   }
 
-  ensureAccount(accountId: string, omletId = 'omletplayer'): Account {
+  ensureAccount(accountId: string, omletId?: string): Account {
     const existing = this.findAccount(accountId);
     if (existing) return existing;
+    const name =
+      omletId && omletId.trim() ? omletId.trim() : this.uniqueGuestOmletId();
     const stamp = now();
     return this.upsertAccount({
       accountId,
       clientPub: null,
-      omletId,
+      omletId: name,
       scopes: ['PublicProfile', 'Arcade'],
       createdMs: stamp,
       hasEmail: true,
@@ -196,8 +226,8 @@ export class Repositories {
           a: accountId,
           c: 'ONE',
           d: 'GUEST',
-          i: [{ p: omletId, t: 'omlet' }],
-          p: omletId,
+          i: [{ p: name, t: 'omlet' }],
+          p: name,
           s: stamp,
         },
         S: ['PublicProfile', 'Arcade'],
