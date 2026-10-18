@@ -15,9 +15,6 @@ COPILOT.md
 
 # Secrets and signing material
 server/keys.json
-server/accounts.json
-server/state.json
-server/state.json.tmp
 server/omlet.db
 server/omlet.db-wal
 server/omlet.db-shm
@@ -36,12 +33,6 @@ build/
 jadx.log
 logs/
 
-# Python
-server/venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
 
 # OS / editor
 .DS_Store

@@ -15,9 +15,8 @@ Backend local e kit de patch do cliente para o **Omlet Arcade 1.111.9** (pacote
 > membros, canais e mensagens são persistidos em **SQLite** (`server/omlet.db`,
 > WAL). A aba **Canais** lista os canais de texto das comunidades; a aba
 > **Communities** lista/browse as comunidades e o feed local. DMs, live e mídia
-> do feed ainda **não** estão implementados. Há também um servidor equivalente
-> em **TypeScript** (`server-ts`, Fastify + Drizzle/SQLite) com paridade para os
-> fluxos atuais; o Python permanece como implementação de referência.
+> do feed ainda **não** estão implementados. O servidor atual é o
+> **TypeScript** (`server-ts`, Fastify + Drizzle/SQLite).
 
 > **Aviso:** este é um projeto não oficial de engenharia reversa / preservação.
 > Não é afiliado à Omlet, à Mobisocial nem a seus parceiros. Nenhum APK, código
@@ -200,14 +199,11 @@ endpoint do cluster.
 ├── LICENSE
 ├── .gitignore
 ├── server/
-│   ├── server.py            # handshake, sessões e handlers do protocolo
-│   ├── database.py          # schema SQLite, repositório e migração dos JSONs
+│   ├── keys.json            # chaves do handshake (gerado, ignorado pelo Git)
 │   ├── omlet.db             # banco SQLite em runtime (ignorado pelo Git)
 │   ├── avatar.png          # avatar padrão servido ao cliente
 │   ├── cover.png           # capa padrão do perfil
-│   ├── stub.py             # logger WebSocket bruto (depuração de protocolo)
-│   ├── generate_keys.py    # cria server/keys.json
-│   └── requirements.txt
+│   └── generate_keys.py    # cria server/keys.json
 ├── server-ts/
 │   ├── src/                 # servidor TypeScript (Fastify + Drizzle)
 │   │   ├── db/              # schema, cliente SQLite e repositórios
@@ -220,10 +216,9 @@ endpoint do cluster.
     └── patch-apk.sh         # decodifica/corrige/reconstrói/assina o APK do cliente
 ```
 
-Em tempo de execução o servidor usa `server/omlet.db` (SQLite, WAL,
-`foreign_keys=ON`). O banco é criado automaticamente e ignorado pelo Git. Na
-primeira execução, `server/accounts.json` e `server/state.json` (formato antigo)
-são importados uma única vez; eles continuam apenas como backup legado.
+Em tempo de execução o servidor TypeScript usa `server/omlet.db` (SQLite, WAL,
+`foreign_keys=ON`). O banco e o schema são criados automaticamente na primeira
+execução e o arquivo é ignorado pelo Git.
 
 O schema atual é composto por:
 
@@ -234,9 +229,9 @@ O schema atual é composto por:
 - `communities`, `community_members` — comunidades e membros/cargos;
 - `channels`, `channel_messages` — canais de texto e mensagens.
 
-O acesso fica isolado em `server/database.py`, sem SQL espalhado pelos
-handlers. A intenção é trocar o backend para **PostgreSQL** no futuro mantendo a
-mesma API do repositório e o mesmo schema lógico.
+O acesso fica isolado em `server-ts/src/db/repositories.ts`, sem SQL espalhado
+pelos handlers. A intenção é trocar o backend para **PostgreSQL** no futuro
+mantendo a mesma API do repositório e o mesmo schema lógico.
 
 O APK original, a árvore decompilada, os APKs reconstruídos, os logs, a chave
 privada e o keystore de assinatura **não** são versionados intencionalmente.
@@ -248,8 +243,8 @@ privada e o keystore de assinatura **não** são versionados intencionalmente.
 Testado em Arch Linux + Waydroid (LineageOS 20, x86_64). Você precisa de:
 
 - Linux com Waydroid (ou um dispositivo Android físico com ADB).
-- Python 3.11+ (servidor de referência).
-- Node.js 22+ e npm (servidor TypeScript em `server-ts`, opcional).
+- Node.js 22+ e npm.
+- Python 3.11+ (só para `server/generate_keys.py`).
 - `apktool`, `zipalign`, `apksigner`, `keytool` (Java).
   - No Arch, `apktool` está disponível no AUR; as build-tools fornecem
     `zipalign`/`apksigner` (ex.: `/opt/android-sdk/build-tools/33.0.2`).
@@ -264,11 +259,13 @@ handshake e o servidor a aceita. Elas não estão incluídas neste repositório.
 
 ## Início rápido
 
-### 1. Ambiente Python
+### 1. Dependências do servidor
 
 ```bash
-python3 -m venv server/venv
-server/venv/bin/pip install -r server/requirements.txt
+cd server-ts
+npm install
+npm run typecheck
+npm test
 ```
 
 ### 2. Gerar o par de chaves do servidor local
@@ -344,12 +341,12 @@ do helper), use `adb install` ou envie o APK para `/data/local/tmp` e rode
 ### 6. Iniciar o servidor
 
 ```bash
-cd server
-nohup ./venv/bin/python server.py >> ../logs/server.log 2>&1 &
+cd server-ts
+nohup npm start > ../logs/server-ts.log 2>&1 &
 ```
 
-O servidor escuta em `0.0.0.0:8080`. O cliente alcança o host em
-`192.168.240.1:8080` de dentro do Waydroid.
+O servidor escuta em `0.0.0.0:8080` (WebSocket) e `0.0.0.0:8081` (assets). O
+cliente alcança o host em `192.168.240.1:8080` de dentro do Waydroid.
 
 ### 7. Abrir o app
 
@@ -378,7 +375,7 @@ protocolo e o mesmo banco SQLite:
 - **Zod** disponível para contratos de request/response;
 - **Drizzle ORM** + `better-sqlite3` sobre `server/omlet.db` (mesmo schema);
 - **Vitest** para testes;
-- HTTP de assets em `0.0.0.0:8081` (avatar/cover), como no Python;
+- HTTP de assets em `0.0.0.0:8081` (avatar/cover);
 - sem Next.js: o protocolo é WebSocket bruto e não se encaixa em route handlers
   serverless.
 
@@ -400,7 +397,7 @@ server-ts/src/
 └── main.ts                  # bootstrap Fastify + WS
 ```
 
-Rodando (pare o servidor Python antes, pois usam a mesma porta e o mesmo banco):
+Rodando:
 
 ```bash
 cd server-ts
@@ -478,12 +475,12 @@ Responda com o timestamp do servidor:
 
 ### Depuração
 
-`server/stub.py` é um logger WebSocket bruto. Ele não responde ao handshake;
-apenas imprime paths e mensagens (texto ou gzip/binário) para você capturar
-exatamente o que o cliente envia.
+O servidor TypeScript loga todas as requisições recebidas (`REQ`) e os métodos
+não implementados (`UNKNOWN`) em `logs/server-ts.log`:
 
 ```bash
-server/venv/bin/python server/stub.py
+tail -f logs/server-ts.log
+LOG_LEVEL=debug npm start
 ```
 
 ---
