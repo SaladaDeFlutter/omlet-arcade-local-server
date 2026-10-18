@@ -768,6 +768,9 @@ export class LongdanHandler {
       } else if (q.w && typeof q.w === 'object' && 'saus' in q.w) {
         response.w = { saus: {} };
         this.log('USER_STATS', { path });
+      } else if (q.w && typeof q.w === 'object' && 'gci' in q.w) {
+        response['='] = { v: true };
+        this.log('CLIENT_APPS', { path });
       } else if (q.i && typeof q.i === 'object' && 'S' in q.i) {
         response['='] = { v: true };
         this.log('SESSION_PING', { path });
