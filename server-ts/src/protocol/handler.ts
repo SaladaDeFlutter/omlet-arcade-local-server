@@ -277,6 +277,32 @@ export class LongdanHandler {
         repositories.updateBackgroundUrl(record.accountId, link);
         response['='] = { v: true };
         this.log('SET_PROFILE_BACKGROUND', { path, link });
+      } else if (q.p && typeof q.p === 'object' && 'spbl' in q.p) {
+        const req = (q.p.spbl ?? {}) as Json;
+        const record = currentAccount(state);
+        const links = Array.isArray(req.p)
+          ? req.p.filter((item): item is string => typeof item === 'string')
+          : [];
+        repositories.updateInfoImages(record.accountId, links);
+        response['='] = { v: true };
+        this.log('SET_PROFILE_INFO_IMAGES', { path, count: links.length });
+      } else if (q.p && typeof q.p === 'object' && 'spd' in q.p) {
+        const req = (q.p.spd ?? {}) as Json;
+        const record = currentAccount(state);
+        if (req.pd && typeof req.pd === 'object') {
+          repositories.updateDecoration(
+            record.accountId,
+            JSON.stringify(req.pd),
+          );
+          this.log('SET_PROFILE_DECORATION', {
+            path,
+            fields: Object.keys(req.pd),
+          });
+        } else {
+          repositories.updateDecoration(record.accountId, '');
+          this.log('RESET_PROFILE_DECORATION', { path });
+        }
+        response['='] = { v: true };
       } else if (q.p && typeof q.p === 'object' && 'gpa' in q.p) {
         const gpa = (q.p.gpa ?? {}) as Json;
         const accountId =

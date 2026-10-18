@@ -31,6 +31,12 @@ export function initializeDatabase(): void {
   if (!accountColumns.includes('background_url')) {
     sqlite.exec("ALTER TABLE accounts ADD COLUMN background_url TEXT NOT NULL DEFAULT ''");
   }
+  if (!accountColumns.includes('info_images')) {
+    sqlite.exec("ALTER TABLE accounts ADD COLUMN info_images TEXT NOT NULL DEFAULT '[]'");
+  }
+  if (!accountColumns.includes('decoration_json')) {
+    sqlite.exec("ALTER TABLE accounts ADD COLUMN decoration_json TEXT NOT NULL DEFAULT ''");
+  }
   sqlite.pragma('user_version = 1');
 
   const firstAccount = db

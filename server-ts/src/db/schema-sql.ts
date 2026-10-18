@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS accounts (
   account_json TEXT NOT NULL DEFAULT '{}',
   bio TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
-  background_url TEXT NOT NULL DEFAULT ''
+  background_url TEXT NOT NULL DEFAULT '',
+  info_images TEXT NOT NULL DEFAULT '[]',
+  decoration_json TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS posts (

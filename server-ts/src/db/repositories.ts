@@ -32,6 +32,8 @@ export interface Account {
   bio: string;
   avatarUrl: string;
   backgroundUrl: string;
+  infoImages: string[];
+  decorationJson: string;
 }
 
 export interface AccountInput {
@@ -46,6 +48,8 @@ export interface AccountInput {
   bio?: string;
   avatarUrl?: string;
   backgroundUrl?: string;
+  infoImages?: string[];
+  decorationJson?: string;
 }
 
 export interface PostWithAuthor {
@@ -81,6 +85,18 @@ export function randomId(bytes = 16): string {
   return crypto.randomBytes(bytes).toString('hex');
 }
 
+function parseInfoImages(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseAccount(row: AccountRow): Account {
   let z: Record<string, unknown> = {};
   try {
@@ -107,6 +123,8 @@ function parseAccount(row: AccountRow): Account {
     bio: row.bio ?? '',
     avatarUrl: row.avatarUrl ?? '',
     backgroundUrl: row.backgroundUrl ?? '',
+    infoImages: parseInfoImages(row.infoImages),
+    decorationJson: row.decorationJson ?? '',
   };
 }
 
@@ -145,6 +163,8 @@ export class Repositories {
       bio: input.bio ?? '',
       avatarUrl: input.avatarUrl ?? '',
       backgroundUrl: input.backgroundUrl ?? '',
+      infoImages: JSON.stringify(input.infoImages ?? []),
+      decorationJson: input.decorationJson ?? '',
     };
     if (existing) {
       db.update(accounts)
@@ -188,6 +208,8 @@ export class Repositories {
       bio: '',
       avatarUrl: '',
       backgroundUrl: '',
+      infoImages: [],
+      decorationJson: '',
     });
   }
 
@@ -205,6 +227,20 @@ export class Repositories {
   updateBackgroundUrl(accountId: string, backgroundUrl: string): void {
     db.update(accounts)
       .set({ backgroundUrl })
+      .where(eq(accounts.accountId, accountId))
+      .run();
+  }
+
+  updateInfoImages(accountId: string, infoImages: string[]): void {
+    db.update(accounts)
+      .set({ infoImages: JSON.stringify(infoImages) })
+      .where(eq(accounts.accountId, accountId))
+      .run();
+  }
+
+  updateDecoration(accountId: string, decorationJson: string): void {
+    db.update(accounts)
+      .set({ decorationJson })
       .where(eq(accounts.accountId, accountId))
       .run();
   }

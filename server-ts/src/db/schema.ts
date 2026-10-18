@@ -14,6 +14,8 @@ export const accounts = sqliteTable(
     bio: text('bio').notNull().default(''),
     avatarUrl: text('avatar_url').notNull().default(''),
     backgroundUrl: text('background_url').notNull().default(''),
+    infoImages: text('info_images').notNull().default('[]'),
+    decorationJson: text('decoration_json').notNull().default(''),
   },
   (table) => [index('accounts_created_idx').on(table.createdMs)],
 );

@@ -21,7 +21,7 @@ export function profileAbout(account: Account): Record<string, unknown> {
   const stamp = Date.now();
   const omletId = account.omletId;
   return {
-    a: omletId,
+    a: account.bio,
     al: account.createdMs,
     lm: stamp,
     bg: account.backgroundUrl || CONFIG.coverBlobUrl,
@@ -35,7 +35,7 @@ export function profileAbout(account: Account): Record<string, unknown> {
       im: false,
     },
     g: 'Unknown',
-    p: [],
+    p: account.infoImages,
     s: 'Omlet Arcade guest',
     tfs: false,
     p2pfc: 0,
@@ -44,6 +44,14 @@ export function profileAbout(account: Account): Record<string, unknown> {
 }
 
 export function profileDetail(account: Account): Record<string, unknown> {
+  let decoration: unknown = null;
+  if (account.decorationJson) {
+    try {
+      decoration = JSON.parse(account.decorationJson);
+    } catch {
+      decoration = null;
+    }
+  }
   return {
     v: 0,
     pu: account.omletId,
@@ -51,6 +59,10 @@ export function profileDetail(account: Account): Record<string, unknown> {
     n: account.omletId,
     p: account.avatarUrl || CONFIG.avatarBlobUrl,
     au: CONFIG.avatarHttpUrl,
+    pd: decoration,
+    agu: account.backgroundUrl || CONFIG.coverBlobUrl,
+    R: account.createdMs,
+    l: 0,
   };
 }
 
@@ -106,6 +118,10 @@ export function communityEe(
       ct: 'Managed',
       cid: community.communityId,
       p: 'Android',
+    },
+    a: {
+      ci: community.icon || CONFIG.avatarBlobUrl,
+      dn: community.name,
     },
     c: members.length,
     p: 0,
