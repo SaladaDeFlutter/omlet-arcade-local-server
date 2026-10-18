@@ -475,8 +475,8 @@ export class LongdanHandler {
         response.st = { grl: { l: [] } };
         this.log('PROFILE_REWARD_LEVEL', { path });
       } else if (q.r && typeof q.r === 'object' && 'm' in q.r) {
-        response['='] = { v: true };
-        this.log('PROFILE_R_M', { path, payload: q.r.m });
+        response['!'] = 'NotASquadMember';
+        this.log('ABOUT_SQUAD', { path, payload: q.r.m });
       } else if (q.w && typeof q.w === 'object' && 'gcfr' in q.w) {
         const record = currentAccount(state);
         let communities = repositories.listCommunities(record.accountId);
@@ -830,7 +830,7 @@ export class LongdanHandler {
         const vc = (q.b.vc ?? {}) as Json;
         const inner = (vc.ut ?? {}) as Json;
         const link = typeof inner.l === 'string' ? inner.l : '';
-        response.b = { vc: { v: link } };
+        response['='] = { v: link };
         this.log('BLOB_UPLOAD_FINALIZE', { path, link });
       } else if (q.b && typeof q.b === 'object' && 'dt' in q.b) {
         const dt = (q.b.dt ?? {}) as Json;
