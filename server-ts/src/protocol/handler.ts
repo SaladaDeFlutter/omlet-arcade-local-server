@@ -495,6 +495,9 @@ export class LongdanHandler {
       } else if (q.w && typeof q.w === 'object' && 'gspt' in q.w) {
         response.w = { gspt: {} };
         this.log('SERVER_PING_STATS', { path, payload: q.w.gspt });
+      } else if (q.w && typeof q.w === 'object' && 'gaf' in q.w) {
+        response.w = { gaf: { f: [] } };
+        this.log('ACCOUNTS_FOLLOWED', { path, payload: q.w.gaf });
       } else if (q.st && typeof q.st === 'object' && 'gtf' in q.st) {
         response.st = { gtf: { al: [], u: [] } };
         this.log('PROFILE_TOP_FANS', { path });
