@@ -362,6 +362,21 @@ export class LongdanHandler {
           account: record.accountId,
           omlet_id: record.omletId,
         });
+      } else if (q.p && typeof q.p === 'object' && 'gbl' in q.p) {
+        response.p = { gbl: { bu: [], ui: [] } };
+        this.log('BLOCKED_USERS', { path, payload: q.p.gbl });
+      } else if (q.p && typeof q.p === 'object' && 'guti' in q.p) {
+        response.p = { guti: { l: [], us: {} } };
+        this.log('USER_TROPHIES', { path, payload: q.p.guti });
+      } else if (q.p && typeof q.p === 'object' && 'gru' in q.p) {
+        response.p = { gru: { i: '', t: '', u: '' } };
+        this.log('URL_RESOLVE', { path, payload: q.p.gru });
+      } else if (q.p && typeof q.p === 'object' && 'gad' in q.p) {
+        response.p = { gad: { f: {}, d: {}, pf: [], ph: [], v: 0 } };
+        this.log('AVAILABLE_DECORATIONS', { path, payload: q.p.gad });
+      } else if (q.p && typeof q.p === 'object' && 'gdr' in q.p) {
+        response.p = { gdr: { l: [], t: '', v: 0 } };
+        this.log('PURCHASED_DECORATIONS', { path, payload: q.p.gdr });
       } else if (q.w && typeof q.w === 'object' && anyKey(q.w, ['gfc', 'gafc', 'guwc'])) {
         const record = currentAccount(state);
         const keys = Object.keys(q.w);
@@ -468,6 +483,18 @@ export class LongdanHandler {
       } else if (q.w && typeof q.w === 'object' && 'ci' in q.w) {
         response.w = { ci: { i: false, r: false } };
         this.log('PROFILE_COMMUNITY_INFO', { path, payload: q.w.ci });
+      } else if (q.w && typeof q.w === 'object' && 'gubpc' in q.w) {
+        response['='] = { v: 0 };
+        this.log('BANG_POST_COUNT', { path, payload: q.w.gubpc });
+      } else if (q.w && typeof q.w === 'object' && 'gubw' in q.w) {
+        response.w = { w: { w: { p: [], i: [] } } };
+        this.log('BANG_WALL', { path, payload: q.w.gubw });
+      } else if (q.w && typeof q.w === 'object' && 'gthr' in q.w) {
+        response.w = { gthr: { hl: [] } };
+        this.log('HIGHLIGHTS', { path, payload: q.w.gthr });
+      } else if (q.w && typeof q.w === 'object' && 'gspt' in q.w) {
+        response.w = { gspt: {} };
+        this.log('SERVER_PING_STATS', { path, payload: q.w.gspt });
       } else if (q.st && typeof q.st === 'object' && 'gtf' in q.st) {
         response.st = { gtf: { al: [], u: [] } };
         this.log('PROFILE_TOP_FANS', { path });
@@ -658,6 +685,15 @@ export class LongdanHandler {
           response.i = { f: { f: [] } };
           this.log('FEED_DETAILS', { path, ibt: itemType, count: 0 });
         }
+      } else if (q.i && typeof q.i === 'object' && 'gius' in q.i) {
+        response.i = { gius: { m: 0, c: 0, r: 0, ct: 0 } };
+        this.log('INBOX_UNREAD', { path });
+      } else if (q.i && typeof q.i === 'object' && 'sius' in q.i) {
+        response['='] = { v: true };
+        this.log('SET_INBOX_READ', { path, payload: q.i.sius });
+      } else if (q.co && typeof q.co === 'object' && 'lcos' in q.co) {
+        response.co = { lcos: { l: [] } };
+        this.log('COMMUNITY_OBJECTS', { path, payload: q.co.lcos });
       } else if (q.m && typeof q.m === 'object' && 'gmfc' in q.m) {
         const record = currentAccount(state);
         const req = (q.m.gmfc ?? {}) as Json;
