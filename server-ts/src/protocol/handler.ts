@@ -736,6 +736,22 @@ export class LongdanHandler {
       } else if (q.ps && typeof q.ps === 'object' && 'o' in q.ps) {
         response['='] = { v: true };
         this.log('SET_PRESENCE', { path });
+      } else if (q.ps && typeof q.ps === 'object' && 'g' in q.ps) {
+        const req = q.ps.g as { A?: string[] };
+        const accounts = Array.isArray(req?.A) ? req.A : [];
+        response.ps = {
+          p: { S: accounts.map((account) => ({ a: account, o: false })) },
+        };
+        this.log('GET_PRESENCE', { path, count: accounts.length });
+      } else if (q.M && typeof q.M === 'object' && 'R' in q.M) {
+        response['='] = { v: true };
+        this.log('CONTROL_EVENTS', { path });
+      } else if (q.w && typeof q.w === 'object' && 'hif' in q.w) {
+        response['='] = { v: true };
+        this.log('VIEW_EVENTS', { path });
+      } else if (q.i && typeof q.i === 'object' && 'S' in q.i) {
+        response['='] = { v: true };
+        this.log('SESSION_PING', { path });
       } else if (q.ca && typeof q.ca === 'object' && 'gnw' in q.ca) {
         response.ca = {
           gnw: { wa: '', bnc: '', hpg: false },
